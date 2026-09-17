@@ -331,6 +331,7 @@
     const { etapa, participantes, partidas } = dados;
     const isAdmin = usuarioAtual.role === 'admin';
     const podeInscrever = etapa.status === 'inscricoes';
+    const ehManual = etapa.modo === 'manual';
 
     const chipsParticipantes = participantes.length ? participantes.map((p) => `
       <span class="player-chip">
@@ -369,9 +370,50 @@
     partidas.forEach((p) => { (rodadas[p.rodada] = rodadas[p.rodada] || []).push(p); });
 
     const partidasHtml = Object.keys(rodadas).length ? Object.keys(rodadas).sort((a, b) => a - b).map((r) => `
-      <div class="rodada-titulo">Rodada ${r}</div>
-      ${rodadas[r].map(renderMatchCard).join('')}
+      ${ehManual ? '' : `<div class="rodada-titulo">Rodada ${r}</div>`}
+      ${rodadas[r].map((p) => renderMatchCard(p, isAdmin)).join('')}
     `).join('') : `<div class="empty-state">${podeInscrever ? 'O sorteio ainda não foi realizado.' : 'Nenhuma partida.'}</div>`;
+
+    const painelPartidaManual = isAdmin ? `
+      <div class="divider"></div>
+      <button class="link-btn small" id="btn-mostrar-form-manual">+ Adicionar partida retroativa (sem sorteio)</button>
+      <form id="form-partida-manual" class="stack" hidden style="margin-top:12px;">
+        <div id="erro-partida-manual"></div>
+        <p class="form-hint">Use isto para lançar jogos que já aconteceram (antes do site, ou fora do sorteio automático). Os jogadores informados são criados/reaproveitados e entram automaticamente na lista de inscritos desta etapa.</p>
+        <div class="grid-cols">
+          <div class="field" style="margin-bottom:0;">
+            <label>Dupla 1 - jogador 1</label>
+            <input type="text" name="e1j1" required list="lista-jogadores" />
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <label>Dupla 1 - jogador 2</label>
+            <input type="text" name="e1j2" required list="lista-jogadores" />
+          </div>
+        </div>
+        <div class="grid-cols">
+          <div class="field" style="margin-bottom:0;">
+            <label>Dupla 2 - jogador 1</label>
+            <input type="text" name="e2j1" required list="lista-jogadores" />
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <label>Dupla 2 - jogador 2</label>
+            <input type="text" name="e2j2" required list="lista-jogadores" />
+          </div>
+        </div>
+        <div class="row">
+          <div class="field" style="margin-bottom:0;">
+            <label>Games dupla 1</label>
+            <input type="number" name="games1" min="0" max="3" required style="width:80px;" />
+          </div>
+          <span class="vs" style="align-self:flex-end; padding-bottom:11px;">×</span>
+          <div class="field" style="margin-bottom:0;">
+            <label>Games dupla 2</label>
+            <input type="number" name="games2" min="0" max="3" required style="width:80px;" />
+          </div>
+        </div>
+        <button class="btn btn-accent" type="submit" style="align-self:flex-start;">Adicionar partida</button>
+      </form>
+    ` : '';
 
     viewEl.innerHTML = '';
     viewEl.appendChild(h(`
@@ -385,6 +427,7 @@
             </div>
             ${badgeStatus(etapa.status)}
           </div>
+          ${ehManual ? '<p class="small muted" style="margin-top:8px;">Etapa retroativa - partidas lançadas manualmente pelo administrador.</p>' : ''}
           ${painelAdminEtapa}
         </div>
 
@@ -398,7 +441,9 @@
         <div class="card">
           <div class="card-title-row"><h2>Partidas</h2></div>
           ${partidasHtml}
+          ${painelPartidaManual}
         </div>
+        <datalist id="lista-jogadores"></datalist>
       </div>
     `));
 
@@ -411,11 +456,12 @@
     ligarEventosEtapaDetalhe(id);
   }
 
-  function renderMatchCard(p) {
+  function renderMatchCard(p, isAdmin) {
     const temResultado = p.games_equipe1 !== null && p.games_equipe2 !== null;
     const time1Venceu = temResultado && p.games_equipe1 > p.games_equipe2;
     const time2Venceu = temResultado && p.games_equipe2 > p.games_equipe1;
     const podeEditar = usuarioAtual.role === 'admin' || !temResultado;
+    const btnExcluir = isAdmin ? `<button class="link-btn small" data-excluir-partida="${p.id}" style="margin-top:8px; margin-left:14px; color:var(--danger);">Excluir partida</button>` : '';
 
     const corpo = temResultado ? `
       <div class="match-teams">
@@ -423,7 +469,7 @@
         <span class="score-display">${p.games_equipe1} × ${p.games_equipe2}</span>
         <span class="team ${time2Venceu ? 'venceu' : ''}">${esc(p.equipe2_j1_nome)} / ${esc(p.equipe2_j2_nome)}</span>
       </div>
-      ${podeEditar ? `<button class="link-btn small" data-editar-resultado="${p.id}" style="margin-top:8px;">Corrigir resultado</button>` : ''}
+      ${podeEditar ? `<button class="link-btn small" data-editar-resultado="${p.id}" style="margin-top:8px;">Corrigir resultado</button>` : ''}${btnExcluir}
       <form class="score-form" data-form-resultado="${p.id}" hidden>
         <input type="number" min="0" max="3" name="games1" required value="${p.games_equipe1}" />
         <span class="vs">×</span>
@@ -442,6 +488,7 @@
         <input type="number" min="0" max="3" name="games2" placeholder="0" required />
         <button class="btn btn-sm" type="submit">Salvar placar</button>
       </form>
+      ${btnExcluir}
     `;
 
     return `
@@ -543,6 +590,48 @@
         } catch (e) { mostrarToast(e.message, 'erro'); }
       });
     });
+
+    viewEl.querySelectorAll('[data-excluir-partida]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('Excluir esta partida?')) return;
+        try {
+          await api(`/partidas/${btn.getAttribute('data-excluir-partida')}`, { method: 'DELETE' });
+          mostrarToast('Partida excluída.');
+          viewEtapaDetalhe(etapaId);
+        } catch (e) { mostrarToast(e.message, 'erro'); }
+      });
+    });
+
+    const btnMostrarFormManual = viewEl.querySelector('#btn-mostrar-form-manual');
+    const formManual = viewEl.querySelector('#form-partida-manual');
+    if (btnMostrarFormManual && formManual) {
+      btnMostrarFormManual.addEventListener('click', () => {
+        formManual.hidden = !formManual.hidden;
+        btnMostrarFormManual.hidden = !formManual.hidden;
+      });
+      formManual.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        const fd = new FormData(formManual);
+        const btnSalvar = formManual.querySelector('button[type="submit"]');
+        btnSalvar.disabled = true;
+        try {
+          await api(`/etapas/${etapaId}/partidas`, {
+            method: 'POST',
+            body: JSON.stringify({
+              equipe1: [fd.get('e1j1'), fd.get('e1j2')],
+              equipe2: [fd.get('e2j1'), fd.get('e2j2')],
+              games1: fd.get('games1'),
+              games2: fd.get('games2'),
+            }),
+          });
+          mostrarToast('Partida adicionada.');
+          viewEtapaDetalhe(etapaId);
+        } catch (e) {
+          viewEl.querySelector('#erro-partida-manual').innerHTML = `<div class="form-error">${esc(e.message)}</div>`;
+          btnSalvar.disabled = false;
+        }
+      });
+    }
   }
 
   // ---------------------------------------------------------------------
@@ -573,10 +662,12 @@
       return;
     }
 
+    const MEDALHAS = { 1: '🥇', 2: '🥈', 3: '🥉' };
+
     const linhas = dados.ranking;
     const corpoTabela = linhas.length ? linhas.map((l) => `
       <tr>
-        <td class="pos">${l.posicao}º</td>
+        <td class="pos">${l.posicao}º ${MEDALHAS[l.posicao] || ''}</td>
         <td class="player-name">${esc(l.nome)}</td>
         <td>${l.vitorias}</td>
         <td>${l.derrotas}</td>
