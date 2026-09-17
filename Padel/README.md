@@ -29,10 +29,23 @@ de resultados e ranking semestral/anual com criterios de desempate.
   embaralhados aleatoriamente dentro desse modelo.
 - **Resultados.** Cada partida termina em 3x0, 3x1 ou 3x2 (a dupla que
   chega a 3 games primeiro vence) - o site so aceita esses placares.
+- **Etapas retroativas (partidas ja disputadas antes do site existir).**
+  Na pagina de uma etapa, o administrador tem o link **"+ Adicionar partida
+  retroativa"**, que abre um formulario para informar as duas duplas e o
+  placar diretamente - sem passar por inscricao de jogadores nem sorteio.
+  Os jogadores informados sao criados automaticamente (se ainda nao
+  existirem) e entram na etapa, contando para o ranking normalmente. So o
+  administrador ve e usa essa opcao. Uma etapa criada assim fica marcada
+  como "retroativa" e nao usa mais o sorteio automatico (o botao de sorteio
+  fica indisponivel para ela, ja que os jogos ja foram todos definidos
+  manualmente) - mas continua podendo receber mais partidas retroativas a
+  qualquer momento. O administrador tambem pode excluir uma partida
+  lancada por engano (botao "Excluir partida").
 - **Ranking individual semestral e anual**, calculado automaticamente a
   partir dos resultados de todas as etapas do periodo, nesta ordem de
   desempate: (1) numero de vitorias, (2) saldo de games, (3) games ganhos,
-  (4) confronto direto entre os jogadores empatados.
+  (4) confronto direto entre os jogadores empatados. O 1º, 2º e 3º colocados
+  aparecem com medalha (🥇🥈🥉) ao lado da posicao.
 
 ## Como publicar o site (gratuito, ~10-15 minutos)
 
