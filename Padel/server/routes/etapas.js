@@ -2,6 +2,7 @@ const express = require('express');
 const db = require('../db');
 const { autenticar, exigirAdmin } = require('../lib/auth');
 const { gerarSorteio } = require('../lib/sorteio');
+const { validarPlacar } = require('../lib/placares');
 
 const router = express.Router();
 
@@ -12,6 +13,15 @@ function buscarEtapaOu404(id, res) {
     return null;
   }
   return etapa;
+}
+
+/** Busca um jogador existente (por nome, sem diferenciar maiusculas/minusculas) ou cria um novo. */
+function resolverOuCriarJogador(nome) {
+  const nomeLimpo = nome.trim();
+  const existente = db.prepare('SELECT id FROM jogadores WHERE nome = ? COLLATE NOCASE').get(nomeLimpo);
+  if (existente) return existente.id;
+  const info = db.prepare('INSERT INTO jogadores (nome) VALUES (?)').run(nomeLimpo);
+  return info.lastInsertRowid;
 }
 
 router.get('/', autenticar, (req, res) => {
@@ -108,14 +118,7 @@ router.post('/:id/participantes', autenticar, (req, res) => {
   }
 
   const nomeLimpo = nome.trim();
-  let jogador = db.prepare('SELECT id FROM jogadores WHERE nome = ? COLLATE NOCASE').get(nomeLimpo);
-  let jogadorId;
-  if (jogador) {
-    jogadorId = jogador.id;
-  } else {
-    const info = db.prepare('INSERT INTO jogadores (nome) VALUES (?)').run(nomeLimpo);
-    jogadorId = info.lastInsertRowid;
-  }
+  const jogadorId = resolverOuCriarJogador(nomeLimpo);
 
   const jaInscrito = db
     .prepare('SELECT 1 FROM etapa_participantes WHERE etapa_id = ? AND jogador_id = ?')
@@ -144,6 +147,11 @@ router.delete('/:id/participantes/:jogadorId', autenticar, exigirAdmin, (req, re
 router.post('/:id/sortear', autenticar, exigirAdmin, (req, res) => {
   const etapa = buscarEtapaOu404(req.params.id, res);
   if (!etapa) return;
+  if (etapa.modo === 'manual') {
+    return res.status(409).json({
+      erro: 'Esta etapa usa lancamento manual de partidas (retroativa) e nao pode ser sorteada automaticamente.',
+    });
+  }
 
   const participantes = db
     .prepare('SELECT jogador_id FROM etapa_participantes WHERE etapa_id = ?')
@@ -187,6 +195,79 @@ router.post('/:id/sortear', autenticar, exigirAdmin, (req, res) => {
   transacao();
 
   res.json({ ok: true, totalPartidas: partidasGeradas.length });
+});
+
+// Cadastra manualmente uma partida ja disputada (etapas retroativas, anteriores
+// ao site, ou qualquer partida que precise ser lancada fora do fluxo de sorteio).
+// Somente o administrador pode fazer isso. Nao exige sorteio nem limite de 8
+// jogadores - os 4 nomes informados sao criados/reaproveitados e automaticamente
+// inscritos na etapa, para constarem no ranking do periodo.
+router.post('/:id/partidas', autenticar, exigirAdmin, (req, res) => {
+  const etapa = buscarEtapaOu404(req.params.id, res);
+  if (!etapa) return;
+
+  const { equipe1, equipe2, games1, games2, rodada, quadra } = req.body || {};
+  if (!Array.isArray(equipe1) || equipe1.length !== 2 || !Array.isArray(equipe2) || equipe2.length !== 2) {
+    return res.status(400).json({ erro: 'Informe os dois jogadores de cada dupla.' });
+  }
+  const nomes = [...equipe1, ...equipe2].map((n) => (n || '').toString().trim());
+  if (nomes.some((n) => !n)) {
+    return res.status(400).json({ erro: 'Preencha o nome dos 4 jogadores.' });
+  }
+  const nomesNormalizados = nomes.map((n) => n.toLowerCase());
+  if (new Set(nomesNormalizados).size !== 4) {
+    return res.status(400).json({ erro: 'Os 4 jogadores da partida devem ser diferentes entre si.' });
+  }
+
+  const erroPlacar = validarPlacar(games1, games2);
+  if (erroPlacar) return res.status(400).json({ erro: erroPlacar });
+
+  const transacao = db.transaction(() => {
+    const jogadorIds = nomes.map((nome) => resolverOuCriarJogador(nome));
+
+    for (const jogadorId of jogadorIds) {
+      const jaInscrito = db
+        .prepare('SELECT 1 FROM etapa_participantes WHERE etapa_id = ? AND jogador_id = ?')
+        .get(etapa.id, jogadorId);
+      if (!jaInscrito) {
+        db.prepare('INSERT INTO etapa_participantes (etapa_id, jogador_id, adicionado_por) VALUES (?, ?, ?)').run(
+          etapa.id, jogadorId, req.usuario.id
+        );
+      }
+    }
+
+    const rodadaFinal = rodada
+      ? Number(rodada)
+      : db.prepare('SELECT COALESCE(MAX(rodada), 0) AS r FROM partidas WHERE etapa_id = ?').get(etapa.id).r + 1;
+    const quadraFinal = quadra ? Number(quadra) : 1;
+
+    const info = db
+      .prepare(
+        `INSERT INTO partidas
+           (etapa_id, rodada, quadra, equipe1_j1, equipe1_j2, equipe2_j1, equipe2_j2,
+            games_equipe1, games_equipe2, resultado_lancado_por, atualizado_em)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
+      )
+      .run(
+        etapa.id, rodadaFinal, quadraFinal,
+        jogadorIds[0], jogadorIds[1], jogadorIds[2], jogadorIds[3],
+        Number(games1), Number(games2), req.usuario.id
+      );
+
+    // uma etapa que ainda estava em "inscricoes" passa a ser tratada como manual
+    const novoModo = etapa.status === 'inscricoes' ? 'manual' : etapa.modo;
+    const total = db.prepare('SELECT COUNT(*) AS n FROM partidas WHERE etapa_id = ?').get(etapa.id).n;
+    const comResultado = db
+      .prepare('SELECT COUNT(*) AS n FROM partidas WHERE etapa_id = ? AND games_equipe1 IS NOT NULL')
+      .get(etapa.id).n;
+    const novoStatus = total > 0 && total === comResultado ? 'finalizada' : 'sorteada';
+    db.prepare('UPDATE etapas SET modo = ?, status = ? WHERE id = ?').run(novoModo, novoStatus, etapa.id);
+
+    return info.lastInsertRowid;
+  });
+
+  const partidaId = transacao();
+  res.status(201).json({ ok: true, partidaId });
 });
 
 module.exports = router;
