@@ -66,6 +66,24 @@ CREATE INDEX IF NOT EXISTS idx_partidas_etapa ON partidas(etapa_id);
 CREATE INDEX IF NOT EXISTS idx_participantes_etapa ON etapa_participantes(etapa_id);
 `);
 
+/**
+ * Migracoes simples e seguras para bancos ja existentes (adicionam colunas novas
+ * sem apagar dados). Cada migracao checa se a coluna ja existe antes de criar.
+ */
+function coluna_existe(tabela, coluna) {
+  return db.prepare(`PRAGMA table_info(${tabela})`).all().some((c) => c.name === coluna);
+}
+
+function migrar() {
+  if (!coluna_existe('etapas', 'modo')) {
+    // 'sorteio' = fluxo normal (inscricao + sorteio automatico)
+    // 'manual'  = etapa retroativa, com partidas cadastradas diretamente pelo admin
+    db.exec(`ALTER TABLE etapas ADD COLUMN modo TEXT NOT NULL DEFAULT 'sorteio'`);
+  }
+}
+
+migrar();
+
 function seedAdmin() {
   const jaTemAdmin = db.prepare("SELECT COUNT(*) AS n FROM usuarios WHERE role = 'admin'").get();
   if (jaTemAdmin.n > 0) return;
