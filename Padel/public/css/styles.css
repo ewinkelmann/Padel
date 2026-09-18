@@ -1,35 +1,47 @@
 :root {
-  --court: #0e6e62;
-  --court-dark: #0a5148;
-  --court-light: #e6f3f0;
+  /* Azul das quadras de padel (piso), com o amarelo da bola como contraste */
+  --court: #1b5a96;
+  --court-dark: #0f3c68;
+  --court-light: #e7eef8;
   --ball: #d7f24c;
   --ball-dark: #a9c22a;
-  --bg: #f7f9f8;
+  --bg: #f4f6f8;
   --surface: #ffffff;
   --text: #16221f;
-  --muted: #5c6e6a;
-  --border: #e1e8e6;
+  --muted: #5c6a72;
+  --border: #e1e6ea;
   --danger: #c0392b;
   --danger-bg: #fbeae8;
   --warn: #b8860b;
   --warn-bg: #fbf3df;
   --radius: 14px;
   --radius-sm: 9px;
-  --shadow: 0 1px 2px rgba(14, 40, 34, 0.06), 0 4px 16px rgba(14, 40, 34, 0.06);
+  --shadow: 0 1px 2px rgba(14, 30, 40, 0.06), 0 4px 16px rgba(14, 30, 40, 0.06);
   --font-display: 'Manrope', 'Inter', system-ui, sans-serif;
   --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+  --bg-photo-overlay: linear-gradient(180deg, rgba(10, 26, 43, 0.62), rgba(10, 26, 43, 0.72));
 }
 
 * { box-sizing: border-box; }
-html, body { height: 100%; }
+html, body { min-height: 100%; }
 body {
   margin: 0;
-  background: var(--bg);
+  background-color: var(--bg);
+  background-image: var(--bg-photo-overlay), url('/img/quadra-bg.jpg');
+  background-size: cover;
+  background-position: center 30%;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
   color: var(--text);
   font-family: var(--font-body);
   font-size: 15px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+}
+/* Em telas pequenas, "fixed" pode causar engasgos/instabilidade em alguns
+   navegadores mobile - usamos "scroll" nesse caso (o visual continua igual). */
+@media (max-width: 640px) {
+  body { background-attachment: scroll; }
 }
 h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 800; letter-spacing: -0.01em; margin: 0 0 4px; }
 p { margin: 0 0 12px; }
@@ -215,8 +227,9 @@ tfoot td { color: var(--muted); font-size: 12px; padding-top: 8px; }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0f1613; --surface: #17201c; --text: #eef3f1; --muted: #93a29d;
-    --border: #263029; --court-light: #182c28; --danger-bg: #2c1613; --warn-bg: #2b2210;
+    --bg: #0d1420; --surface: #161e2b; --text: #eef2f6; --muted: #93a2b0;
+    --border: #232e3d; --court-light: #17263a; --danger-bg: #2c1613; --warn-bg: #2b2210;
+    --bg-photo-overlay: linear-gradient(180deg, rgba(4, 10, 18, 0.78), rgba(4, 10, 18, 0.85));
   }
   th { background: var(--court-light); }
 }

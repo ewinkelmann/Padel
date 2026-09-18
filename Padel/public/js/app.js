@@ -119,7 +119,7 @@
   // Roteador simples baseado em hash
   // ---------------------------------------------------------------------
 
-  const rotasPublicas = ['/login', '/registro'];
+  const rotasPublicas = ['/login', '/registro', '/esqueci-senha', '/redefinir-senha'];
 
   async function rotear() {
     let rota = location.hash.replace('#', '') || '/etapas';
@@ -142,6 +142,8 @@
     try {
       if (rota.startsWith('/login')) return viewLogin();
       if (rota.startsWith('/registro')) return viewRegistro();
+      if (rota.startsWith('/esqueci-senha')) return viewEsqueciSenha();
+      if (rota.startsWith('/redefinir-senha')) return viewRedefinirSenha(rota);
       if (rota.startsWith('/etapas/')) return viewEtapaDetalhe(rota.split('/')[2]);
       if (rota.startsWith('/etapas')) return viewEtapas();
       if (rota.startsWith('/ranking')) return viewRanking();
@@ -177,8 +179,9 @@
             </div>
             <button class="btn btn-block" type="submit">Entrar</button>
           </form>
-          <p class="small muted" style="margin-top:14px;">
-            Ainda não tem conta? <a class="link-btn" href="#/registro">Cadastre-se</a>
+          <p class="small muted" style="margin-top:14px; display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+            <a class="link-btn" href="#/registro">Criar conta</a>
+            <a class="link-btn" href="#/esqueci-senha">Esqueci minha senha</a>
           </p>
         </div>
       </div>
@@ -196,6 +199,121 @@
         });
         await carregarUsuario();
         location.hash = '#/etapas';
+      } catch (e) {
+        el.querySelector('#erro-area').innerHTML = `<div class="form-error">${esc(e.message)}</div>`;
+        btn.disabled = false;
+      }
+    });
+  }
+
+  // ---------------------------------------------------------------------
+  // View: Esqueci minha senha / Redefinir senha
+  // ---------------------------------------------------------------------
+
+  function viewEsqueciSenha() {
+    viewEl.innerHTML = '';
+    const el = h(`
+      <div class="center-hero">
+        <div class="card">
+          <h1>Esqueci minha senha</h1>
+          <p class="muted small">Informe o e-mail da sua conta. Se ele estiver cadastrado, enviaremos um link para você escolher uma nova senha.</p>
+          <div id="erro-area"></div>
+          <div id="sucesso-area"></div>
+          <form id="form-esqueci" class="stack">
+            <div class="field">
+              <label>E-mail</label>
+              <input type="email" name="email" required autocomplete="email" />
+            </div>
+            <button class="btn btn-block" type="submit">Enviar link</button>
+          </form>
+          <p class="small muted" style="margin-top:14px;">
+            <a class="link-btn" href="#/login">← Voltar para o login</a>
+          </p>
+        </div>
+      </div>
+    `);
+    viewEl.appendChild(el);
+    el.querySelector('#form-esqueci').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const fd = new FormData(ev.target);
+      const btn = ev.target.querySelector('button');
+      btn.disabled = true;
+      try {
+        const resp = await api('/auth/esqueci-senha', {
+          method: 'POST',
+          body: JSON.stringify({ email: fd.get('email') }),
+        });
+        ev.target.hidden = true;
+        el.querySelector('#sucesso-area').innerHTML = `<div class="help-box">${esc(resp.mensagem)}</div>`;
+      } catch (e) {
+        el.querySelector('#erro-area').innerHTML = `<div class="form-error">${esc(e.message)}</div>`;
+        btn.disabled = false;
+      }
+    });
+  }
+
+  function viewRedefinirSenha(rota) {
+    const queryString = rota.includes('?') ? rota.split('?')[1] : '';
+    const params = new URLSearchParams(queryString);
+    const token = params.get('token');
+
+    viewEl.innerHTML = '';
+
+    if (!token) {
+      viewEl.appendChild(h(`
+        <div class="center-hero">
+          <div class="card">
+            <h1>Link inválido</h1>
+            <p class="muted small">Este link de redefinição de senha está incompleto. Solicite um novo.</p>
+            <a class="btn btn-block" href="#/esqueci-senha">Solicitar novo link</a>
+          </div>
+        </div>
+      `));
+      return;
+    }
+
+    const el = h(`
+      <div class="center-hero">
+        <div class="card">
+          <h1>Definir nova senha</h1>
+          <div id="erro-area"></div>
+          <div id="sucesso-area"></div>
+          <form id="form-redefinir" class="stack">
+            <div class="field">
+              <label>Nova senha</label>
+              <input type="password" name="novaSenha" required minlength="6" autocomplete="new-password" />
+              <div class="form-hint">Mínimo de 6 caracteres.</div>
+            </div>
+            <div class="field">
+              <label>Confirmar nova senha</label>
+              <input type="password" name="confirmarSenha" required minlength="6" autocomplete="new-password" />
+            </div>
+            <button class="btn btn-block" type="submit">Salvar nova senha</button>
+          </form>
+        </div>
+      </div>
+    `);
+    viewEl.appendChild(el);
+    el.querySelector('#form-redefinir').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const fd = new FormData(ev.target);
+      const novaSenha = fd.get('novaSenha');
+      const confirmarSenha = fd.get('confirmarSenha');
+      const btn = ev.target.querySelector('button');
+      if (novaSenha !== confirmarSenha) {
+        el.querySelector('#erro-area').innerHTML = '<div class="form-error">As senhas não coincidem.</div>';
+        return;
+      }
+      btn.disabled = true;
+      try {
+        await api('/auth/redefinir-senha', {
+          method: 'POST',
+          body: JSON.stringify({ token, novaSenha }),
+        });
+        ev.target.hidden = true;
+        el.querySelector('#sucesso-area').innerHTML = `
+          <div class="help-box">Senha redefinida com sucesso! <a class="link-btn" href="#/login">Entrar agora</a></div>
+        `;
       } catch (e) {
         el.querySelector('#erro-area').innerHTML = `<div class="form-error">${esc(e.message)}</div>`;
         btn.disabled = false;

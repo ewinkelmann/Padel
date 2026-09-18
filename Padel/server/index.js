@@ -28,6 +28,11 @@ require('./db'); // garante criacao das tabelas e semeadura do admin antes de su
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// necessario para que req.protocol reflita "https" corretamente quando o site
+// roda atras de um proxy (Render, Railway etc.) - usado para montar o link
+// de redefinicao de senha por e-mail.
+app.set('trust proxy', 1);
+
 app.use(express.json());
 app.use(cookieParser());
 

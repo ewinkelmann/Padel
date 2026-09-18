@@ -62,8 +62,18 @@ CREATE TABLE IF NOT EXISTS partidas (
   atualizado_em TEXT
 );
 
+CREATE TABLE IF NOT EXISTS reset_tokens (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  token_hash TEXT NOT NULL UNIQUE,
+  expira_em TEXT NOT NULL,
+  usado INTEGER NOT NULL DEFAULT 0,
+  criado_em TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_partidas_etapa ON partidas(etapa_id);
 CREATE INDEX IF NOT EXISTS idx_participantes_etapa ON etapa_participantes(etapa_id);
+CREATE INDEX IF NOT EXISTS idx_reset_tokens_usuario ON reset_tokens(usuario_id);
 `);
 
 /**

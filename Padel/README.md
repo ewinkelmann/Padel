@@ -6,14 +6,22 @@ de resultados e ranking semestral/anual com criterios de desempate.
 
 ## O que o site faz
 
-- **Login com e-mail e senha.** Qualquer jogador pode criar sua propria conta.
-  Existe apenas **um usuario administrador** (definido nas variaveis de
-  ambiente antes de publicar o site - veja abaixo). O administrador pode
-  alterar qualquer dado (etapas, jogadores, resultados, regras). Os demais
-  usuarios logados so podem **incluir nomes de jogadores** em uma etapa e
-  **lancar o resultado** das partidas - eles nao conseguem editar ranking,
-  excluir etapas, remover participantes ou corrigir um resultado que ja
-  tenha sido lancado por outra pessoa (so o admin corrige).
+- **Login com e-mail e senha.** Qualquer jogador pode criar sua propria conta
+  (nao e possivel cadastrar duas contas com o mesmo e-mail). Existe apenas
+  **um usuario administrador** (definido nas variaveis de ambiente antes de
+  publicar o site - veja abaixo). O administrador pode alterar qualquer dado
+  (etapas, jogadores, resultados, regras). Os demais usuarios logados so
+  podem **incluir nomes de jogadores** em uma etapa e **lancar o resultado**
+  das partidas - eles nao conseguem editar ranking, excluir etapas, remover
+  participantes ou corrigir um resultado que ja tenha sido lancado por outra
+  pessoa (so o admin corrige).
+- **Esqueci minha senha.** Na tela de login, qualquer pessoa pode clicar em
+  "Esqueci minha senha", informar o e-mail e recebe uma mensagem por e-mail
+  com um link (valido por 1 hora) para escolher uma senha nova, sem precisar
+  do administrador. Isso exige configurar o envio de e-mails (veja a secao
+  "Configurar o envio de e-mail" abaixo) - sem essa configuracao, o link
+  ainda e gerado mas so aparece no log do servidor, nao chega por e-mail de
+  verdade.
 - **Etapas do torneio.** O admin cria uma etapa (nome + data). Enquanto as
   inscricoes estiverem abertas, qualquer jogador logado pode adicionar nomes
   (de 4 a 8 jogadores por etapa). O admin entao realiza o sorteio.
@@ -126,6 +134,42 @@ sobe, para criar a conta administradora automaticamente. Depois disso, voce
 pode trocar sua senha direto pelo site (nao precisa mexer nas variaveis de
 novo). Ninguem mais pode virar administrador pelo site - so essa conta.
 
+## Configurar o envio de e-mail (para o "Esqueci minha senha" funcionar)
+
+O site precisa de um servico de SMTP para conseguir enviar o e-mail com o
+link de redefinicao de senha. Recomendamos o **Brevo** (antigo Sendinblue),
+que tem plano gratuito de 300 e-mails/dia - mais que suficiente para o seu
+grupo:
+
+1. Crie uma conta gratuita em https://www.brevo.com.
+2. No painel, va em **Settings (o ícone de engrenagem)** → **SMTP & API** →
+   aba **SMTP**.
+3. Voce vai ver algo como:
+   - **SMTP Server**: `smtp-relay.brevo.com`
+   - **Port**: `587`
+   - **Login**: seu e-mail cadastrado no Brevo
+   - **Password / Master password**: clique em "Generate a new SMTP key" para
+     criar uma senha especifica para isso (nao e a senha da sua conta Brevo).
+4. No Render (ou Railway), adicione estas variaveis de ambiente com os
+   valores acima:
+   - `SMTP_HOST` = `smtp-relay.brevo.com`
+   - `SMTP_PORT` = `587`
+   - `SMTP_USER` = seu login do Brevo
+   - `SMTP_PASS` = a chave SMTP gerada no passo 3
+   - `SMTP_FROM` = por exemplo `Padel Ranking <seuemail@exemplo.com>` (use o
+     mesmo e-mail da sua conta Brevo, senao alguns provedores marcam como
+     spam)
+5. Salve e reinicie o servico (Manual Deploy). Pronto - o "Esqueci minha
+   senha" ja vai enviar e-mails de verdade.
+
+Qualquer outro provedor de SMTP funciona do mesmo jeito (Gmail com "senha de
+app", SendGrid, Mailgun, Amazon SES etc.) - so trocar os valores de
+`SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASS`.
+
+Sem essas variaveis configuradas, o site continua funcionando normalmente -
+o link de redefinicao so nao chega por e-mail (ele fica registrado no log do
+servidor, o que serve para testar localmente).
+
 ## Rodando localmente (para testar antes de publicar)
 
 Requer Node.js 18 ou mais recente.
@@ -150,8 +194,12 @@ server/            back-end (Node.js + Express)
     sorteio.js      algoritmo de sorteio (usa os modelos de schedules.js)
     schedules.js    modelos de rodadas/partidas verificados por simulacao
     ranking.js      calculo do ranking e criterios de desempate
+    email.js       envio do e-mail de redefinicao de senha (SMTP)
   routes/          endpoints da API (auth, jogadores, etapas, partidas, ranking)
 public/            front-end (HTML/CSS/JS puro, sem build step)
+  img/
+    favicon.svg    icone do site (bola de padel amarela)
+    quadra-bg.jpg  foto de fundo do site
 data/              banco de dados SQLite fica aqui (nao apagar ao fazer deploy!)
 ```
 
