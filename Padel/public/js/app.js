@@ -369,10 +369,15 @@
     const rodadas = {};
     partidas.forEach((p) => { (rodadas[p.rodada] = rodadas[p.rodada] || []).push(p); });
 
-    const partidasHtml = Object.keys(rodadas).length ? Object.keys(rodadas).sort((a, b) => a - b).map((r) => `
-      ${ehManual ? '' : `<div class="rodada-titulo">Rodada ${r}</div>`}
-      ${rodadas[r].map((p) => renderMatchCard(p, isAdmin)).join('')}
-    `).join('') : `<div class="empty-state">${podeInscrever ? 'O sorteio ainda não foi realizado.' : 'Nenhuma partida.'}</div>`;
+    const partidasHtml = Object.keys(rodadas).length ? Object.keys(rodadas).sort((a, b) => a - b).map((r) => {
+      const jogosDaRodada = rodadas[r].slice().sort((a, b) => a.quadra - b.quadra);
+      const cards = jogosDaRodada.map((p) => renderMatchCard(p, isAdmin)).join('');
+      const duasQuadras = jogosDaRodada.length > 1;
+      return `
+        ${ehManual ? '' : `<div class="rodada-titulo">Rodada ${r}</div>`}
+        <div class="${duasQuadras ? 'grid-cols' : ''}">${cards}</div>
+      `;
+    }).join('') : `<div class="empty-state">${podeInscrever ? 'O sorteio ainda não foi realizado.' : 'Nenhuma partida.'}</div>`;
 
     const painelPartidaManual = isAdmin ? `
       <div class="divider"></div>
@@ -491,9 +496,10 @@
       ${btnExcluir}
     `;
 
+    const nomeQuadra = `Quadra ${String(p.quadra).padStart(2, '0')}`;
     return `
       <div class="match-card">
-        <div class="match-court">Quadra ${p.quadra}</div>
+        <div class="match-court quadra-${p.quadra}">${nomeQuadra}</div>
         ${corpo}
       </div>
     `;
