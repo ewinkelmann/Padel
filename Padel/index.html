@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Padel Ranking</title>
+  <meta name="description" content="Torneios e ranking de padel Americano" />
+  <link rel="icon" type="image/svg+xml" href="/img/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="topbar" id="topbar" hidden>
+      <div class="topbar-inner">
+        <a class="brand" href="#/etapas">
+          <span class="brand-ball" aria-hidden="true"></span>
+          <span>Padel Ranking</span>
+        </a>
+        <nav class="nav" id="nav-links"></nav>
+        <div class="user-box" id="user-box"></div>
+        <button class="menu-toggle" id="menu-toggle" aria-label="Abrir menu">☰</button>
+      </div>
+    </header>
+    <main id="view" class="view"></main>
+    <div id="toast" class="toast" hidden></div>
+  </div>
+  <script src="/js/app.js"></script>
+</body>
+</html>

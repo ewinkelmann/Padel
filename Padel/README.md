@@ -15,6 +15,12 @@ de resultados e ranking semestral/anual com criterios de desempate.
   das partidas - eles nao conseguem editar ranking, excluir etapas, remover
   participantes ou corrigir um resultado que ja tenha sido lancado por outra
   pessoa (so o admin corrige).
+- **Lista de usuários (só o admin ve).** Uma pagina "Usuários", visivel so
+  para o administrador, mostra nome, e-mail e data de cadastro de todo mundo
+  que ja criou conta. As senhas nunca aparecem ali (nem em nenhum outro
+  lugar) - elas ficam guardadas apenas como hash, um formato que nem o
+  proprio sistema consegue reverter para o texto original. Se um jogador
+  esquecer a senha, a solucao e sempre pelo "Esqueci minha senha".
 - **Esqueci minha senha.** Na tela de login, qualquer pessoa pode clicar em
   "Esqueci minha senha", informar o e-mail e recebe uma mensagem por e-mail
   com um link (valido por 1 hora) para escolher uma senha nova, sem precisar
