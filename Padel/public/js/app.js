@@ -96,6 +96,7 @@
       ['/etapas', 'Etapas'],
       ['/ranking', 'Ranking'],
     ];
+    if (usuarioAtual.role === 'admin') links.push(['/usuarios', 'Usuários']);
     navLinksEl.innerHTML = links.map(([rota, label]) => {
       const ativo = rotaAtual.startsWith(rota) ? ' class="active"' : '';
       return `<a href="#${rota}"${ativo}>${esc(label)}</a>`;
@@ -103,7 +104,7 @@
 
     userBoxEl.innerHTML = `
       ${usuarioAtual.role === 'admin' ? '<span class="badge-admin">Admin</span>' : ''}
-      <span class="small">${esc(usuarioAtual.nome.split(' ')[0])}</span>
+      <a href="#/conta" class="small" style="color:#fff; text-decoration:underline;">${esc(usuarioAtual.nome.split(' ')[0])}</a>
       <button id="btn-sair">Sair</button>
     `;
     userBoxEl.querySelector('#btn-sair').addEventListener('click', async () => {
@@ -147,6 +148,8 @@
       if (rota.startsWith('/etapas/')) return viewEtapaDetalhe(rota.split('/')[2]);
       if (rota.startsWith('/etapas')) return viewEtapas();
       if (rota.startsWith('/ranking')) return viewRanking();
+      if (rota.startsWith('/usuarios')) return viewUsuarios();
+      if (rota.startsWith('/conta')) return viewConta();
       location.hash = '#/etapas';
     } catch (e) {
       viewEl.innerHTML = `<div class="card"><p class="form-error">${esc(e.message)}</p></div>`;
@@ -756,6 +759,108 @@
         }
       });
     }
+  }
+
+  // ---------------------------------------------------------------------
+  // View: Usuários (somente admin)
+  // ---------------------------------------------------------------------
+
+  async function viewUsuarios() {
+    viewEl.innerHTML = '<div class="card"><p class="muted">Carregando usuários…</p></div>';
+    let dados;
+    try {
+      dados = await api('/usuarios');
+    } catch (e) {
+      viewEl.innerHTML = `<div class="card"><p class="form-error">${esc(e.message)}</p></div>`;
+      return;
+    }
+
+    const linhas = dados.usuarios.map((u) => `
+      <tr>
+        <td class="player-name">${esc(u.nome)} ${u.role === 'admin' ? '<span class="badge-admin" style="background:var(--ball); color:var(--court-dark);">Admin</span>' : ''}</td>
+        <td>${esc(u.email)}</td>
+        <td class="muted small">${formatarData((u.criado_em || '').split(' ')[0])}</td>
+      </tr>
+    `).join('');
+
+    viewEl.innerHTML = '';
+    viewEl.appendChild(h(`
+      <div>
+        <div class="card">
+          <div class="card-title-row"><h1>Usuários cadastrados</h1></div>
+          <p class="help-box">Por segurança, as senhas ficam guardadas de forma criptografada (hash) e não podem ser exibidas por ninguém, nem pelo administrador. Se algum jogador esquecer a senha, oriente-o a usar o link "Esqueci minha senha" na tela de login.</p>
+        </div>
+        <div class="card">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Nome</th><th>E-mail</th><th>Cadastrado em</th></tr></thead>
+              <tbody>${linhas}</tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `));
+  }
+
+  // ---------------------------------------------------------------------
+  // View: Minha conta (trocar senha)
+  // ---------------------------------------------------------------------
+
+  function viewConta() {
+    viewEl.innerHTML = '';
+    const el = h(`
+      <div class="center-hero">
+        <div class="card">
+          <h1>Minha conta</h1>
+          <p class="muted small">${esc(usuarioAtual.nome)} · ${esc(usuarioAtual.email)}</p>
+          <div class="divider"></div>
+          <h2 style="font-size:16px;">Trocar senha</h2>
+          <div id="erro-area"></div>
+          <div id="sucesso-area"></div>
+          <form id="form-trocar-senha" class="stack">
+            <div class="field">
+              <label>Senha atual</label>
+              <input type="password" name="senhaAtual" required autocomplete="current-password" />
+            </div>
+            <div class="field">
+              <label>Nova senha</label>
+              <input type="password" name="novaSenha" required minlength="6" autocomplete="new-password" />
+              <div class="form-hint">Mínimo de 6 caracteres.</div>
+            </div>
+            <div class="field">
+              <label>Confirmar nova senha</label>
+              <input type="password" name="confirmarSenha" required minlength="6" autocomplete="new-password" />
+            </div>
+            <button class="btn btn-block" type="submit">Salvar nova senha</button>
+          </form>
+        </div>
+      </div>
+    `);
+    viewEl.appendChild(el);
+    el.querySelector('#form-trocar-senha').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const fd = new FormData(ev.target);
+      const novaSenha = fd.get('novaSenha');
+      const confirmarSenha = fd.get('confirmarSenha');
+      const btn = ev.target.querySelector('button');
+      el.querySelector('#erro-area').innerHTML = '';
+      if (novaSenha !== confirmarSenha) {
+        el.querySelector('#erro-area').innerHTML = '<div class="form-error">As senhas não coincidem.</div>';
+        return;
+      }
+      btn.disabled = true;
+      try {
+        await api('/auth/senha', {
+          method: 'PUT',
+          body: JSON.stringify({ senhaAtual: fd.get('senhaAtual'), novaSenha }),
+        });
+        ev.target.reset();
+        el.querySelector('#sucesso-area').innerHTML = '<div class="help-box">Senha atualizada com sucesso.</div>';
+      } catch (e) {
+        el.querySelector('#erro-area').innerHTML = `<div class="form-error">${esc(e.message)}</div>`;
+      }
+      btn.disabled = false;
+    });
   }
 
   // ---------------------------------------------------------------------

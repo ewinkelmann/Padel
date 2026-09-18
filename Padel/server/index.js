@@ -41,6 +41,7 @@ app.use('/api/jogadores', require('./routes/jogadores'));
 app.use('/api/etapas', require('./routes/etapas'));
 app.use('/api/partidas', require('./routes/partidas'));
 app.use('/api/ranking', require('./routes/ranking'));
+app.use('/api/usuarios', require('./routes/usuarios'));
 
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
