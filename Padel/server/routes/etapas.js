@@ -1,6 +1,6 @@
 const express = require('express');
 const db = require('../db');
-const { autenticar, exigirAdmin } = require('../lib/auth');
+const { autenticar, exigirAdmin, permitirPapeis } = require('../lib/auth');
 const { gerarSorteio } = require('../lib/sorteio');
 const { validarPlacar } = require('../lib/placares');
 
@@ -36,7 +36,9 @@ router.get('/', autenticar, (req, res) => {
   res.json({ etapas });
 });
 
-router.post('/', autenticar, exigirAdmin, (req, res) => {
+// Criar etapa: liberado para o administrador e para usuarios com papel "organizador"
+// (jogadores de confianca autorizados pelo admin a abrir etapas e realizar sorteios).
+router.post('/', autenticar, permitirPapeis('admin', 'organizador'), (req, res) => {
   const { nome, data } = req.body || {};
   if (!nome || !nome.trim()) return res.status(400).json({ erro: 'Informe o nome da etapa.' });
   if (!data || !/^\d{4}-\d{2}-\d{2}$/.test(data)) {
@@ -144,9 +146,23 @@ router.delete('/:id/participantes/:jogadorId', autenticar, exigirAdmin, (req, re
 });
 
 // Gera (ou regenera) o sorteio de partidas da etapa.
-router.post('/:id/sortear', autenticar, exigirAdmin, (req, res) => {
+// - O administrador pode sempre gerar ou refazer o sorteio.
+// - Um usuario "organizador" so pode gerar o sorteio inicial (etapa ainda em
+//   "inscricoes"); refazer um sorteio ja existente fica restrito ao admin.
+router.post('/:id/sortear', autenticar, (req, res) => {
+  const ehAdmin = req.usuario.role === 'admin';
+  const ehOrganizador = req.usuario.role === 'organizador';
+  if (!ehAdmin && !ehOrganizador) {
+    return res.status(403).json({ erro: 'Voce nao tem permissao para realizar o sorteio.' });
+  }
+
   const etapa = buscarEtapaOu404(req.params.id, res);
   if (!etapa) return;
+
+  if (!ehAdmin && etapa.status !== 'inscricoes') {
+    return res.status(403).json({ erro: 'Apenas o administrador pode refazer um sorteio ja realizado.' });
+  }
+
   if (etapa.modo === 'manual') {
     return res.status(409).json({
       erro: 'Esta etapa usa lancamento manual de partidas (retroativa) e nao pode ser sorteada automaticamente.',

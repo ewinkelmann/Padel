@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const db = require('../db');
 
 const SEGREDO = process.env.JWT_SECRET;
 if (!SEGREDO) {
@@ -37,7 +38,12 @@ function autenticar(req, res, next) {
   if (!token) return res.status(401).json({ erro: 'Nao autenticado. Faca login.' });
   try {
     const payload = jwt.verify(token, SEGREDO_EFETIVO);
-    req.usuario = payload;
+    // busca o usuario atualizado no banco (nome/role podem ter mudado desde que o
+    // token foi emitido - ex.: o admin promoveu alguem a organizador) em vez de
+    // confiar cegamente no que foi gravado no token na hora do login.
+    const atual = db.prepare('SELECT id, nome, email, role, jogador_id FROM usuarios WHERE id = ?').get(payload.id);
+    if (!atual) return res.status(401).json({ erro: 'Sessao invalida. Faca login novamente.' });
+    req.usuario = atual;
     next();
   } catch (e) {
     return res.status(401).json({ erro: 'Sessao invalida ou expirada. Faca login novamente.' });
@@ -51,4 +57,14 @@ function exigirAdmin(req, res, next) {
   next();
 }
 
-module.exports = { gerarToken, definirCookie, limparCookie, autenticar, exigirAdmin, COOKIE_NOME };
+/** Middleware-factory: libera a rota apenas para os papeis informados (ex.: permitirPapeis('admin', 'organizador')). */
+function permitirPapeis(...papeis) {
+  return (req, res, next) => {
+    if (!req.usuario || !papeis.includes(req.usuario.role)) {
+      return res.status(403).json({ erro: 'Voce nao tem permissao para realizar esta acao.' });
+    }
+    next();
+  };
+}
+
+module.exports = { gerarToken, definirCookie, limparCookie, autenticar, exigirAdmin, permitirPapeis, COOKIE_NOME };

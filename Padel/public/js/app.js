@@ -387,7 +387,8 @@
     viewEl.innerHTML = '<div class="card"><p class="muted">Carregando etapas…</p></div>';
     const { etapas } = await api('/etapas');
 
-    const formNovaEtapa = usuarioAtual.role === 'admin' ? `
+    const podeOrganizar = usuarioAtual.role === 'admin' || usuarioAtual.role === 'organizador';
+    const formNovaEtapa = podeOrganizar ? `
       <div class="card">
         <div class="card-title-row"><h2>Nova etapa</h2></div>
         <div id="erro-nova-etapa"></div>
@@ -451,6 +452,7 @@
   function renderEtapaDetalhe(id, dados) {
     const { etapa, participantes, partidas } = dados;
     const isAdmin = usuarioAtual.role === 'admin';
+    const podeOrganizar = isAdmin || usuarioAtual.role === 'organizador';
     const podeInscrever = etapa.status === 'inscricoes';
     const ehManual = etapa.modo === 'manual';
 
@@ -473,7 +475,7 @@
       <p class="form-hint">${participantes.length}/8 jogadores inscritos. Mínimo de 4 para sortear.</p>
     ` : '';
 
-    const painelSorteio = isAdmin && podeInscrever ? `
+    const painelSorteio = podeOrganizar && podeInscrever ? `
       <button class="btn btn-accent" id="btn-sortear" ${participantes.length < 4 ? 'disabled' : ''}>
         🎾 Realizar sorteio
       </button>
@@ -548,7 +550,17 @@
         <div class="card">
           <div class="row-between">
             <div>
-              <h1>${esc(etapa.nome)}</h1>
+              <div id="titulo-etapa" style="display:flex; align-items:center; gap:8px;">
+                <h1>${esc(etapa.nome)}</h1>
+                ${isAdmin ? '<button class="link-btn small" id="btn-editar-nome-etapa" title="Editar nome da etapa">✏️</button>' : ''}
+              </div>
+              <form id="form-editar-nome-etapa" class="row" hidden style="margin-top:6px;">
+                <div class="field" style="flex:1; min-width:180px; margin-bottom:0;">
+                  <input type="text" name="nome" value="${esc(etapa.nome)}" required />
+                </div>
+                <button class="btn btn-sm" type="submit">Salvar</button>
+                <button class="btn btn-ghost btn-sm" type="button" id="btn-cancelar-nome-etapa">Cancelar</button>
+              </form>
               <span class="muted small">${formatarData(etapa.data)}</span>
             </div>
             ${badgeStatus(etapa.status)}
@@ -653,6 +665,37 @@
         } catch (e) { mostrarToast(e.message, 'erro'); }
       });
     });
+
+    const btnEditarNomeEtapa = viewEl.querySelector('#btn-editar-nome-etapa');
+    const formEditarNomeEtapa = viewEl.querySelector('#form-editar-nome-etapa');
+    const btnCancelarNomeEtapa = viewEl.querySelector('#btn-cancelar-nome-etapa');
+    if (btnEditarNomeEtapa && formEditarNomeEtapa) {
+      btnEditarNomeEtapa.addEventListener('click', () => {
+        viewEl.querySelector('#titulo-etapa').hidden = true;
+        formEditarNomeEtapa.hidden = false;
+        formEditarNomeEtapa.querySelector('input[name="nome"]').focus();
+      });
+    }
+    if (btnCancelarNomeEtapa) {
+      btnCancelarNomeEtapa.addEventListener('click', () => {
+        formEditarNomeEtapa.hidden = true;
+        viewEl.querySelector('#titulo-etapa').hidden = false;
+      });
+    }
+    if (formEditarNomeEtapa) {
+      formEditarNomeEtapa.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        const fd = new FormData(ev.target);
+        try {
+          await api(`/etapas/${etapaId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ nome: fd.get('nome') }),
+          });
+          mostrarToast('Nome da etapa atualizado.');
+          viewEtapaDetalhe(etapaId);
+        } catch (e) { mostrarToast(e.message, 'erro'); }
+      });
+    }
 
     const btnSortear = viewEl.querySelector('#btn-sortear');
     if (btnSortear) {
@@ -780,6 +823,12 @@
         <td class="player-name">${esc(u.nome)} ${u.role === 'admin' ? '<span class="badge-admin" style="background:var(--ball); color:var(--court-dark);">Admin</span>' : ''}</td>
         <td>${esc(u.email)}</td>
         <td class="muted small">${formatarData((u.criado_em || '').split(' ')[0])}</td>
+        <td>${u.role === 'admin' ? '<span class="muted small">—</span>' : `
+          <select data-papel-usuario="${u.id}" data-papel-atual="${u.role}" class="select-sm">
+            <option value="jogador" ${u.role === 'jogador' ? 'selected' : ''}>Jogador</option>
+            <option value="organizador" ${u.role === 'organizador' ? 'selected' : ''}>Organizador</option>
+          </select>
+        `}</td>
       </tr>
     `).join('');
 
@@ -789,17 +838,39 @@
         <div class="card">
           <div class="card-title-row"><h1>Usuários cadastrados</h1></div>
           <p class="help-box">Por segurança, as senhas ficam guardadas de forma criptografada (hash) e não podem ser exibidas por ninguém, nem pelo administrador. Se algum jogador esquecer a senha, oriente-o a usar o link "Esqueci minha senha" na tela de login.</p>
+          <p class="help-box">Um usuário com o papel <strong>Organizador</strong> pode, além de inscrever jogadores e lançar resultados, criar novas etapas e realizar o sorteio inicial delas. Só o administrador pode refazer um sorteio já realizado, editar o ranking ou as regras.</p>
         </div>
         <div class="card">
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Nome</th><th>E-mail</th><th>Cadastrado em</th></tr></thead>
+              <thead><tr><th>Nome</th><th>E-mail</th><th>Cadastrado em</th><th>Papel</th></tr></thead>
               <tbody>${linhas}</tbody>
             </table>
           </div>
         </div>
       </div>
     `));
+
+    viewEl.querySelectorAll('[data-papel-usuario]').forEach((select) => {
+      select.addEventListener('change', async () => {
+        const usuarioId = select.getAttribute('data-papel-usuario');
+        const valorAnterior = select.getAttribute('data-papel-atual');
+        select.disabled = true;
+        try {
+          await api(`/usuarios/${usuarioId}/papel`, {
+            method: 'PUT',
+            body: JSON.stringify({ role: select.value }),
+          });
+          select.setAttribute('data-papel-atual', select.value);
+          mostrarToast('Papel atualizado com sucesso!');
+        } catch (e) {
+          mostrarToast(e.message, 'erro');
+          select.value = valorAnterior;
+        } finally {
+          select.disabled = false;
+        }
+      });
+    });
   }
 
   // ---------------------------------------------------------------------

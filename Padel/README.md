@@ -15,12 +15,24 @@ de resultados e ranking semestral/anual com criterios de desempate.
   das partidas - eles nao conseguem editar ranking, excluir etapas, remover
   participantes ou corrigir um resultado que ja tenha sido lancado por outra
   pessoa (so o admin corrige).
+- **Papel "Organizador".** Na pagina "Usuários", o administrador pode promover
+  qualquer jogador a **organizador** (e rebaixa-lo de volta quando quiser).
+  Um organizador, alem do que qualquer jogador ja pode fazer, tambem pode
+  **criar novas etapas** e **realizar o sorteio inicial** delas. Refazer um
+  sorteio ja existente, editar o nome de uma etapa, excluir etapas/partidas e
+  qualquer outra acao administrativa continuam exclusivas do administrador. A
+  mudanca de papel vale na hora, mesmo que a pessoa ja esteja logada (nao
+  precisa sair e entrar de novo).
 - **Lista de usuários (só o admin ve).** Uma pagina "Usuários", visivel so
-  para o administrador, mostra nome, e-mail e data de cadastro de todo mundo
-  que ja criou conta. As senhas nunca aparecem ali (nem em nenhum outro
+  para o administrador, mostra nome, e-mail, data de cadastro e o papel
+  (jogador/organizador) de todo mundo que ja criou conta - com um menu para
+  trocar o papel na hora. As senhas nunca aparecem ali (nem em nenhum outro
   lugar) - elas ficam guardadas apenas como hash, um formato que nem o
   proprio sistema consegue reverter para o texto original. Se um jogador
   esquecer a senha, a solucao e sempre pelo "Esqueci minha senha".
+- **Editar nome da etapa.** Na pagina de uma etapa, o administrador tem um
+  botao de lapis (✏️) ao lado do titulo para corrigir o nome a qualquer
+  momento, sem precisar recriar a etapa.
 - **Esqueci minha senha.** Na tela de login, qualquer pessoa pode clicar em
   "Esqueci minha senha", informar o e-mail e recebe uma mensagem por e-mail
   com um link (valido por 1 hora) para escolher uma senha nova, sem precisar
@@ -61,16 +73,25 @@ de resultados e ranking semestral/anual com criterios de desempate.
   (4) confronto direto entre os jogadores empatados. O 1º, 2º e 3º colocados
   aparecem com medalha (🥇🥈🥉) ao lado da posicao.
 
-## Como publicar o site (gratuito, ~10-15 minutos)
+## Como publicar o site (~10-15 minutos)
 
 O site precisa rodar em um servidor (nao funciona como um simples arquivo
 HTML, porque guarda dados reais de jogadores e login). A forma mais simples
-e gratuita e usar o **Render**. Railway e Fly.io funcionam de forma muito
-parecida, caso prefira.
+e usar o **Render**. Railway e Fly.io funcionam de forma muito parecida,
+caso prefira.
+
+**Importante sobre o plano Free do Render:** o plano gratuito **nao suporta
+disco persistente** (isso nao fica claro na propria interface do Render).
+Sem disco persistente, todo dado gravado localmente (jogadores, etapas,
+usuarios, resultados) e apagado sempre que o servico "dorme" por inatividade
+e depois "acorda" - ou seja, os dados nao ficam salvos de fato. Por isso,
+para o site guardar os dados de verdade, e necessario o **plano pago minimo
+do Render (Starter, ~US$7/mes) + um disco persistente (~US$0,25/GB/mes - 1 GB
+ja e mais que suficiente)**, total em torno de **US$7,25/mes**.
 
 ### Opcao A - Render.com (recomendado)
 
-1. Crie uma conta gratuita em https://render.com (pode entrar com GitHub).
+1. Crie uma conta em https://render.com (pode entrar com GitHub).
 2. Suba esta pasta para um repositorio no GitHub (no site do GitHub, crie um
    repositorio novo e vazio, depois siga as instrucoes dele para "push an
    existing repository" - ou peca para alguem te ajudar com isso na hora).
@@ -80,7 +101,8 @@ parecida, caso prefira.
    - **Runtime**: Node
    - **Build Command**: `npm install`
    - **Start Command**: `node server/index.js`
-   - **Instance Type**: Free
+   - **Instance Type**: **Starter** (plano pago, ~US$7/mes) - o plano Free
+     nao permite disco persistente, entao os dados seriam perdidos.
 5. Em **Environment**, adicione as variaveis (veja a secao abaixo para o que
    colocar em cada uma):
    - `ADMIN_NOME`
@@ -88,22 +110,32 @@ parecida, caso prefira.
    - `ADMIN_PASSWORD`
    - `JWT_SECRET`
    - `NODE_ENV` = `production`
-6. Em **Disks**, adicione um disco persistente (Add Disk) montado em `/app/data`
-   com pelo menos 1 GB - isso garante que os dados (jogadores, resultados,
-   ranking) nao se percam quando o Render reiniciar o servidor. Sem isso, o
-   banco de dados seria apagado a cada novo deploy.
+   - `DATA_DIR` = `/var/data` (precisa ser **exatamente** o mesmo caminho
+     usado no mount path do disco no passo 6 - e o que diz ao site onde
+     gravar o banco de dados)
+6. Em **Disks**, adicione um disco persistente (Add Disk) com pelo menos 1 GB,
+   montado em `/var/data` (mesmo caminho da variavel `DATA_DIR` acima) - isso
+   garante que os dados (jogadores, etapas, resultados, ranking) nao se
+   percam quando o Render reiniciar o servidor.
 7. Clique em **Create Web Service**. Em alguns minutos o Render vai te dar um
    link (algo como `https://padel-ranking.onrender.com`) - esse e o site para
    compartilhar com o grupo.
 
-O plano gratuito do Render "dorme" depois de alguns minutos sem uso e demora
-uns 30-50 segundos para acordar no proximo acesso - normal, so aguardar.
+Se o servico ja existir configurado como Free, va em **Settings** para trocar
+o **Instance Type** para Starter, depois em **Disks** para adicionar o disco,
+e em **Environment** para adicionar a variavel `DATA_DIR` - o Render reinicia
+o servico automaticamente apos essas mudancas. Como os dados atuais estao
+gravados no lugar errado (efemero), essa troca nao preserva o que ja foi
+cadastrado ate agora - sera preciso recadastrar jogadores/etapas depois, mas
+dai em diante tudo fica salvo de verdade.
 
 ### Opcao B - Railway.app
 
 Mesma ideia: crie conta, "New Project" → "Deploy from GitHub repo", defina
-as mesmas variaveis de ambiente na aba **Variables**, e adicione um **Volume**
-apontando para `/app/data` para os dados nao se perderem entre deploys.
+as mesmas variaveis de ambiente (incluindo `DATA_DIR`) na aba **Variables**,
+e adicione um **Volume** apontando para o mesmo caminho para os dados nao se
+perderem entre deploys. Railway tambem exige plano pago para volumes
+persistentes.
 
 ### Opcao C - Docker (servidor proprio / VPS)
 
