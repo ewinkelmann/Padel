@@ -18,9 +18,11 @@ de resultados e ranking semestral/anual com criterios de desempate.
 - **Papel "Organizador".** Na pagina "Usuários", o administrador pode promover
   qualquer jogador a **organizador** (e rebaixa-lo de volta quando quiser).
   Um organizador, alem do que qualquer jogador ja pode fazer, tambem pode
-  **criar novas etapas**, **realizar o sorteio inicial** delas e **corrigir o
-  nome de uma etapa**. Refazer um sorteio ja existente, mudar a data ou o
-  status de uma etapa, excluir etapas/partidas e qualquer outra acao
+  **criar novas etapas**, **realizar o sorteio inicial** delas, **corrigir o
+  nome de uma etapa**, **gerar os jogos do Hall da Fama** de uma etapa e
+  **gerenciar a secao Inscritos** (cadastrar atletas, marcar quem esta apto a
+  jogar e quem e mensalista). Refazer um sorteio ja existente, mudar a data ou
+  o status de uma etapa, excluir etapas/partidas e qualquer outra acao
   administrativa continuam exclusivas do administrador. A mudanca de papel
   vale na hora, mesmo que a pessoa ja esteja logada (nao precisa sair e
   entrar de novo).
@@ -42,14 +44,22 @@ de resultados e ranking semestral/anual com criterios de desempate.
   "Configurar o envio de e-mail" abaixo) - sem essa configuracao, o link
   ainda e gerado mas so aparece no log do servidor, nao chega por e-mail de
   verdade.
-- **Etapas do torneio.** O admin cria uma etapa (nome + data). Enquanto as
-  inscricoes estiverem abertas, qualquer jogador logado pode adicionar nomes
-  (de 4 a 8 jogadores por etapa). O admin entao realiza o sorteio.
-- **Inscricao rapida com jogadores ja cadastrados.** Ao adicionar jogadores
-  numa etapa, alem de digitar um nome novo, ha uma lista suspensa com todos
-  os jogadores que ja participaram de alguma etapa antes (exceto os que ja
-  estao inscritos naquela etapa) - basta escolher o nome na lista para
-  inscreve-lo na hora, sem precisar redigitar.
+- **Inscritos (cadastro dos atletas aptos a jogar).** Uma secao "Inscritos",
+  visivel so para administrador e organizador, lista os atletas aptos a jogar
+  as etapas. Cada atleta tem duas marcacoes independentes: **Inscrito** (apto
+  a jogar etapas - so quem estiver marcado aqui aparece na lista suspensa de
+  inclusao de jogadores numa etapa) e **Mensalista** (conta para o ranking
+  geral - veja abaixo). E possivel cadastrar um atleta novo direto nesta
+  secao (antes mesmo de ele jogar a primeira etapa) ou ligar/desligar as duas
+  marcacoes de qualquer jogador a qualquer momento - desmarcar "Inscrito" nao
+  apaga o historico do jogador, so tira ele da lista de inclusao em novas
+  etapas.
+- **Etapas do torneio.** O admin ou organizador cria uma etapa (nome + data).
+  Enquanto as inscricoes estiverem abertas, qualquer jogador logado pode
+  adicionar participantes (de 4 a 8 por etapa) escolhendo o nome numa lista
+  suspensa, que so oferece quem estiver marcado como "Inscrito" na secao
+  Inscritos (se o nome nao aparecer, e preciso cadastra-lo la primeiro). O
+  admin ou organizador entao realiza o sorteio.
 - **Sorteio automatico.** Garante matematicamente que, na etapa, cada jogador
   joga pelo menos uma vez ao lado de (como parceiro) e pelo menos uma vez
   contra (como adversario) todos os outros participantes, usando o menor
@@ -83,12 +93,30 @@ de resultados e ranking semestral/anual com criterios de desempate.
   partir dos resultados de todas as etapas do periodo, nesta ordem de
   desempate: (1) numero de vitorias, (2) saldo de games, (3) games ganhos,
   (4) confronto direto entre os jogadores empatados. O 1º, 2º e 3º colocados
-  aparecem com medalha (🥇🥈🥉) ao lado da posicao.
+  aparecem com medalha (🥇🥈🥉) ao lado da posicao. Esta lista (semestral e
+  anual) so mostra quem estiver marcado como **Inscrito e Mensalista** na
+  secao Inscritos - os jogos de todo mundo continuam entrando no calculo
+  normalmente (saldo de games, confronto direto etc.), so a listagem final e
+  filtrada.
 - **Ranking por etapa (historico).** Na pagina de Ranking, a aba "Por etapa"
   mostra um seletor com todas as etapas ja sorteadas/lancadas; ao escolher
   uma, aparece a classificacao estatica so daquela etapa (mesmos criterios de
-  desempate do ranking semestral/anual). E um retrato fixo de como ficou cada
-  etapa especifica, sem somar com as demais.
+  desempate do ranking semestral/anual), com todos os participantes daquela
+  etapa (sem o filtro de mensalista - e um retrato fixo de como ficou cada
+  etapa especifica, sem somar com as demais).
+- **Hall da Fama.** Depois que todas as partidas normais de uma etapa ja
+  tiverem placar lancado, administrador ou organizador podem clicar em
+  **"🏆 Gerar jogos do Hall da Fama"**, na propria pagina da etapa. O sistema
+  monta, com base no ranking daquela etapa: a **Finalissima**, entre o 1º e o
+  4º colocados contra o 2º e o 3º; e, quando a etapa tiver 8 jogadores,
+  tambem a **Ultimalissima**, entre o 5º e o 8º colocados contra o 6º e o 7º.
+  Essas partidas aparecem na propria pagina da etapa (com o mesmo jeito de
+  lancar/corrigir placar das partidas normais) e tambem ficam reunidas numa
+  secao **"Hall da Fama"** propria, visivel para qualquer jogador logado, com
+  o historico de todas as etapas. Esses jogos nao contam para o ranking geral
+  nem para os perfis (radar) - ja que as duplas sao montadas artificialmente
+  a partir do proprio resultado final, contar isso distorceria as
+  estatisticas.
 - **Finalizar etapa (travar resultados).** Depois que todos os resultados de
   uma etapa ja foram lancados, o administrador pode clicar em **"🔒 Finalizar
   etapa"**: a partir dai, jogadores e organizadores deixam de conseguir
