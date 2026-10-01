@@ -230,7 +230,9 @@ tfoot td { color: var(--muted); font-size: 12px; padding-top: 8px; }
   padding: 6px 8px 6px 12px; border-radius: 999px; font-weight: 700; font-size: 13px; }
 .player-chip button { background: none; border: none; color: var(--court-text); cursor: pointer; font-size: 14px; opacity: 0.6; padding: 2px 4px; }
 .player-chip button:hover { opacity: 1; }
-.help-box { background: var(--court-light); border-radius: var(--radius-sm); padding: 12px 14px; font-size: 13px; color: var(--court-text); }
+.help-box { background: var(--court-dark); border-radius: var(--radius-sm); padding: 12px 14px; font-size: 13px; color: #fff; }
+.help-box strong { color: #fff; }
+.help-box a, .help-box .link-btn { color: var(--ball); }
 .divider { height: 1px; background: var(--border); margin: 16px 0; border: none; }
 .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.4);
   border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; }
