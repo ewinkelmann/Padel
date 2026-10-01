@@ -204,4 +204,96 @@ function ordenarComCriteriosDeDesempate(linhas, confrontos) {
   return resultado;
 }
 
-module.exports = { calcularRanking, periodoAtual, limitesPeriodo };
+/**
+ * Ranking estatico de uma unica etapa (historico): considera somente os
+ * participantes e partidas daquela etapa especifica, com os mesmos criterios
+ * de desempate do ranking semestral/anual. Util para consultar como ficou a
+ * classificacao de uma etapa ja encerrada.
+ */
+function calcularRankingEtapa(etapaId) {
+  const etapa = db.prepare('SELECT id, nome, data FROM etapas WHERE id = ?').get(etapaId);
+  if (!etapa) {
+    const erro = new Error('Etapa nao encontrada.');
+    erro.status = 404;
+    throw erro;
+  }
+
+  const stats = new Map();
+  const nomes = new Map();
+
+  function garantir(jogadorId) {
+    if (!stats.has(jogadorId)) {
+      stats.set(jogadorId, { vitorias: 0, derrotas: 0, gamesGanhos: 0, gamesPerdidos: 0, partidasJogadas: 0 });
+    }
+    return stats.get(jogadorId);
+  }
+
+  const participantes = db
+    .prepare(
+      `SELECT ep.jogador_id, j.nome FROM etapa_participantes ep
+       JOIN jogadores j ON j.id = ep.jogador_id
+       WHERE ep.etapa_id = ?`
+    )
+    .all(etapaId);
+  for (const p of participantes) {
+    garantir(p.jogador_id);
+    nomes.set(p.jogador_id, p.nome);
+  }
+
+  const partidas = db
+    .prepare(
+      `SELECT equipe1_j1, equipe1_j2, equipe2_j1, equipe2_j2, games_equipe1, games_equipe2
+       FROM partidas WHERE etapa_id = ? AND games_equipe1 IS NOT NULL AND games_equipe2 IS NOT NULL`
+    )
+    .all(etapaId);
+
+  for (const p of partidas) {
+    const time1 = [p.equipe1_j1, p.equipe1_j2];
+    const time2 = [p.equipe2_j1, p.equipe2_j2];
+    const g1 = p.games_equipe1;
+    const g2 = p.games_equipe2;
+    const time1Venceu = g1 > g2;
+
+    for (const jid of time1) {
+      const s = garantir(jid);
+      s.partidasJogadas += 1;
+      s.gamesGanhos += g1;
+      s.gamesPerdidos += g2;
+      if (time1Venceu) s.vitorias += 1; else s.derrotas += 1;
+    }
+    for (const jid of time2) {
+      const s = garantir(jid);
+      s.partidasJogadas += 1;
+      s.gamesGanhos += g2;
+      s.gamesPerdidos += g1;
+      if (!time1Venceu) s.vitorias += 1; else s.derrotas += 1;
+    }
+  }
+
+  const confrontos = construirConfrontos(partidas);
+
+  for (const jid of stats.keys()) {
+    if (!nomes.has(jid)) {
+      const row = db.prepare('SELECT nome FROM jogadores WHERE id = ?').get(jid);
+      nomes.set(jid, row ? row.nome : `Jogador ${jid}`);
+    }
+  }
+
+  let linhas = Array.from(stats.entries()).map(([jogadorId, s]) => ({
+    jogadorId,
+    nome: nomes.get(jogadorId),
+    vitorias: s.vitorias,
+    derrotas: s.derrotas,
+    partidasJogadas: s.partidasJogadas,
+    gamesGanhos: s.gamesGanhos,
+    gamesPerdidos: s.gamesPerdidos,
+    saldoGames: s.gamesGanhos - s.gamesPerdidos,
+  }));
+
+  linhas = ordenarComCriteriosDeDesempate(linhas, confrontos);
+  linhas.forEach((linha, idx) => { linha.posicao = idx + 1; });
+
+  return { etapa, ranking: linhas };
+}
+
+module.exports = { calcularRanking, calcularRankingEtapa, periodoAtual, limitesPeriodo };

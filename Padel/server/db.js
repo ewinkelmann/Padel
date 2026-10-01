@@ -90,6 +90,11 @@ function migrar() {
     // 'manual'  = etapa retroativa, com partidas cadastradas diretamente pelo admin
     db.exec(`ALTER TABLE etapas ADD COLUMN modo TEXT NOT NULL DEFAULT 'sorteio'`);
   }
+  if (!coluna_existe('etapas', 'travada')) {
+    // 0 = aberta (jogadores/organizadores podem lancar e corrigir resultados)
+    // 1 = finalizada pelo admin - so o admin pode ajustar resultados a partir daqui
+    db.exec(`ALTER TABLE etapas ADD COLUMN travada INTEGER NOT NULL DEFAULT 0`);
+  }
 }
 
 migrar();

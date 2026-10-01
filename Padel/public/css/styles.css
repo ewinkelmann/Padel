@@ -166,6 +166,7 @@ input:focus, select:focus { border-color: var(--court); }
 .badge-inscricoes { background: var(--warn-bg); color: var(--warn); }
 .badge-sorteada { background: var(--court-light); color: var(--court-dark); }
 .badge-finalizada { background: #e7f7ec; color: #1f9d55; }
+.badge-travada { background: #fdeceb; color: #c23b2e; }
 
 /* ---------- Tables ---------- */
 .table-wrap { overflow-x: auto; border-radius: var(--radius-sm); border: 1px solid var(--border); }
@@ -233,4 +234,42 @@ tfoot td { color: var(--muted); font-size: 12px; padding-top: 8px; }
     --bg-photo-overlay: linear-gradient(180deg, rgba(4, 10, 18, 0.78), rgba(4, 10, 18, 0.85));
   }
   th { background: var(--court-light); }
+}
+
+/* ---------- Folha de impressao (tabela de jogos sorteados) ---------- */
+#folha-impressao { display: none; }
+
+.print-cabecalho { text-align: center; margin-bottom: 18px; }
+.print-cabecalho h1 { font-size: 20px; margin-bottom: 4px; }
+.print-cabecalho p { font-size: 13px; color: #444; }
+
+.print-tabela { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.print-tabela th, .print-tabela td {
+  border: 1px solid #999; padding: 8px 10px; text-align: left; vertical-align: middle;
+}
+.print-tabela th { background: #eee; font-weight: 700; }
+.print-tabela .print-vs { text-align: center; color: #666; font-weight: 700; width: 24px; }
+.print-tabela .print-placar { white-space: nowrap; text-align: center; }
+.print-score-box {
+  display: inline-block; width: 30px; height: 26px; border: 1.5px solid #333; border-radius: 4px;
+  text-align: center; line-height: 26px; font-weight: 700; vertical-align: middle;
+}
+
+/* ---------- Radar de forcas (perfil do jogador) ---------- */
+.radar-wrap { display: flex; justify-content: center; padding: 6px 0 14px; }
+.radar-svg { width: 100%; max-width: 360px; height: auto; }
+.radar-anel { fill: none; stroke: var(--border); stroke-width: 1; }
+.radar-eixo { stroke: var(--border); stroke-width: 1; }
+.radar-poligono { fill: var(--court); fill-opacity: 0.35; stroke: var(--court); stroke-width: 2; }
+.radar-ponto { fill: var(--court-dark); }
+.radar-rotulo { font-size: 11.5px; font-weight: 700; fill: var(--text); }
+.radar-valor { font-size: 11px; font-weight: 700; fill: var(--court-dark); }
+
+@media print {
+  body * { visibility: hidden; }
+  #folha-impressao, #folha-impressao * { visibility: visible; }
+  #folha-impressao {
+    display: block; position: absolute; top: 0; left: 0; width: 100%; padding: 24px; color: #000; background: #fff;
+  }
+  @page { margin: 14mm; }
 }

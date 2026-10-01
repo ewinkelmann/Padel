@@ -72,6 +72,59 @@
     return `<span class="badge ${r.classe}">${esc(r.texto)}</span>`;
   }
 
+  // Monta uma folha simples (uma tabela por rodada/quadra) para imprimir os jogos
+  // sorteados, com caixinhas em branco para anotar o placar a mão na quadra -
+  // se a partida ja tiver resultado lancado no site, ele aparece pre-preenchido.
+  function imprimirTabelaEtapa(etapa, partidas) {
+    const rodadas = {};
+    partidas.forEach((p) => { (rodadas[p.rodada] = rodadas[p.rodada] || []).push(p); });
+
+    const linhas = Object.keys(rodadas).sort((a, b) => a - b).map((r) => {
+      const jogos = rodadas[r].slice().sort((a, b) => a.quadra - b.quadra);
+      return jogos.map((p) => {
+        const temResultado = p.games_equipe1 !== null && p.games_equipe2 !== null;
+        const v1 = temResultado ? esc(p.games_equipe1) : '';
+        const v2 = temResultado ? esc(p.games_equipe2) : '';
+        return `
+          <tr>
+            <td>${r}</td>
+            <td>Quadra ${String(p.quadra).padStart(2, '0')}</td>
+            <td>${esc(p.equipe1_j1_nome)} / ${esc(p.equipe1_j2_nome)}</td>
+            <td class="print-vs">×</td>
+            <td>${esc(p.equipe2_j1_nome)} / ${esc(p.equipe2_j2_nome)}</td>
+            <td class="print-placar">
+              <span class="print-score-box">${v1}</span>
+              <span class="print-vs">×</span>
+              <span class="print-score-box">${v2}</span>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }).join('');
+
+    const html = `
+      <div class="print-cabecalho">
+        <h1>${esc(etapa.nome)}</h1>
+        <p>${formatarData(etapa.data)} · Padel Ranking</p>
+      </div>
+      <table class="print-tabela">
+        <thead>
+          <tr><th>Rodada</th><th>Quadra</th><th>Dupla 1</th><th></th><th>Dupla 2</th><th>Placar</th></tr>
+        </thead>
+        <tbody>${linhas}</tbody>
+      </table>
+    `;
+
+    let folha = document.getElementById('folha-impressao');
+    if (!folha) {
+      folha = document.createElement('div');
+      folha.id = 'folha-impressao';
+      document.body.appendChild(folha);
+    }
+    folha.innerHTML = html;
+    window.print();
+  }
+
   // ---------------------------------------------------------------------
   // Autenticação / navegação
   // ---------------------------------------------------------------------
@@ -95,6 +148,7 @@
     const links = [
       ['/etapas', 'Etapas'],
       ['/ranking', 'Ranking'],
+      ['/perfis', 'Perfis'],
     ];
     if (usuarioAtual.role === 'admin') links.push(['/usuarios', 'Usuários']);
     navLinksEl.innerHTML = links.map(([rota, label]) => {
@@ -148,6 +202,7 @@
       if (rota.startsWith('/etapas/')) return viewEtapaDetalhe(rota.split('/')[2]);
       if (rota.startsWith('/etapas')) return viewEtapas();
       if (rota.startsWith('/ranking')) return viewRanking();
+      if (rota.startsWith('/perfis')) return viewPerfis();
       if (rota.startsWith('/usuarios')) return viewUsuarios();
       if (rota.startsWith('/conta')) return viewConta();
       location.hash = '#/etapas';
@@ -455,10 +510,12 @@
     const podeOrganizar = isAdmin || usuarioAtual.role === 'organizador';
     const podeInscrever = etapa.status === 'inscricoes';
     const ehManual = etapa.modo === 'manual';
+    const travada = !!etapa.travada;
 
     const chipsParticipantes = participantes.length ? participantes.map((p) => `
       <span class="player-chip">
         ${esc(p.nome)}
+        ${podeOrganizar ? `<button data-editar-nome-jogador="${p.id}" data-nome-atual="${esc(p.nome)}" title="Editar nome">✏️</button>` : ''}
         ${isAdmin && podeInscrever ? `<button data-remover-participante="${p.id}" title="Remover">✕</button>` : ''}
       </span>
     `).join('') : '<span class="muted small">Nenhum jogador inscrito ainda.</span>';
@@ -484,7 +541,12 @@
 
     const painelAdminEtapa = isAdmin ? `
       <div class="row" style="margin-top:12px;">
-        ${etapa.status !== 'inscricoes' ? '<button class="btn btn-ghost btn-sm" id="btn-resortear">🔁 Refazer sorteio</button>' : ''}
+        ${etapa.status !== 'inscricoes' && !travada ? '<button class="btn btn-ghost btn-sm" id="btn-resortear">🔁 Refazer sorteio</button>' : ''}
+        ${etapa.status !== 'inscricoes' ? (
+          travada
+            ? '<button class="btn btn-ghost btn-sm" id="btn-destravar-etapa">🔓 Ajustar</button>'
+            : '<button class="btn btn-ghost btn-sm" id="btn-travar-etapa">🔒 Finalizar etapa</button>'
+        ) : ''}
         <button class="btn btn-danger btn-sm" id="btn-excluir-etapa">Excluir etapa</button>
       </div>
     ` : '';
@@ -494,7 +556,7 @@
 
     const partidasHtml = Object.keys(rodadas).length ? Object.keys(rodadas).sort((a, b) => a - b).map((r) => {
       const jogosDaRodada = rodadas[r].slice().sort((a, b) => a.quadra - b.quadra);
-      const cards = jogosDaRodada.map((p) => renderMatchCard(p, isAdmin)).join('');
+      const cards = jogosDaRodada.map((p) => renderMatchCard(p, isAdmin, travada)).join('');
       const duasQuadras = jogosDaRodada.length > 1;
       return `
         ${ehManual ? '' : `<div class="rodada-titulo">Rodada ${r}</div>`}
@@ -563,7 +625,10 @@
               </form>
               <span class="muted small">${formatarData(etapa.data)}</span>
             </div>
-            ${badgeStatus(etapa.status)}
+            <div style="display:flex; gap:6px; align-items:center;">
+              ${travada ? '<span class="badge badge-travada">🔒 Finalizada</span>' : ''}
+              ${badgeStatus(etapa.status)}
+            </div>
           </div>
           ${ehManual ? '<p class="small muted" style="margin-top:8px;">Etapa retroativa - partidas lançadas manualmente pelo administrador.</p>' : ''}
           ${painelAdminEtapa}
@@ -577,7 +642,10 @@
         </div>
 
         <div class="card">
-          <div class="card-title-row"><h2>Partidas</h2></div>
+          <div class="card-title-row">
+            <h2>Partidas</h2>
+            ${partidas.length ? '<button class="btn btn-ghost btn-sm" id="btn-imprimir-tabela">🖨️ Imprimir tabela</button>' : ''}
+          </div>
           ${partidasHtml}
           ${painelPartidaManual}
         </div>
@@ -591,15 +659,17 @@
       if (dl) dl.innerHTML = jogadores.map((j) => `<option value="${esc(j.nome)}"></option>`).join('');
     }).catch(() => {});
 
-    ligarEventosEtapaDetalhe(id);
+    ligarEventosEtapaDetalhe(id, etapa, partidas);
   }
 
-  function renderMatchCard(p, isAdmin) {
+  function renderMatchCard(p, isAdmin, travada) {
     const temResultado = p.games_equipe1 !== null && p.games_equipe2 !== null;
     const time1Venceu = temResultado && p.games_equipe1 > p.games_equipe2;
     const time2Venceu = temResultado && p.games_equipe2 > p.games_equipe1;
-    const podeEditar = usuarioAtual.role === 'admin' || !temResultado;
+    const podeEditar = isAdmin || (!temResultado && !travada);
     const btnExcluir = isAdmin ? `<button class="link-btn small" data-excluir-partida="${p.id}" style="margin-top:8px; margin-left:14px; color:var(--danger);">Excluir partida</button>` : '';
+    const avisoTravada = !isAdmin && travada
+      ? '<p class="form-hint">🔒 Etapa finalizada - só o administrador pode lançar ou corrigir resultados agora.</p>' : '';
 
     const corpo = temResultado ? `
       <div class="match-teams">
@@ -608,6 +678,7 @@
         <span class="team ${time2Venceu ? 'venceu' : ''}">${esc(p.equipe2_j1_nome)} / ${esc(p.equipe2_j2_nome)}</span>
       </div>
       ${podeEditar ? `<button class="link-btn small" data-editar-resultado="${p.id}" style="margin-top:8px;">Corrigir resultado</button>` : ''}${btnExcluir}
+      ${avisoTravada}
       <form class="score-form" data-form-resultado="${p.id}" hidden>
         <input type="number" min="0" max="3" name="games1" required value="${p.games_equipe1}" />
         <span class="vs">×</span>
@@ -620,12 +691,14 @@
         <span class="vs">vs</span>
         <span class="team">${esc(p.equipe2_j1_nome)} / ${esc(p.equipe2_j2_nome)}</span>
       </div>
-      <form class="score-form" data-form-resultado="${p.id}">
-        <input type="number" min="0" max="3" name="games1" placeholder="0" required />
-        <span class="vs">×</span>
-        <input type="number" min="0" max="3" name="games2" placeholder="0" required />
-        <button class="btn btn-sm" type="submit">Salvar placar</button>
-      </form>
+      ${podeEditar ? `
+        <form class="score-form" data-form-resultado="${p.id}">
+          <input type="number" min="0" max="3" name="games1" placeholder="0" required />
+          <span class="vs">×</span>
+          <input type="number" min="0" max="3" name="games2" placeholder="0" required />
+          <button class="btn btn-sm" type="submit">Salvar placar</button>
+        </form>
+      ` : avisoTravada}
       ${btnExcluir}
     `;
 
@@ -638,7 +711,12 @@
     `;
   }
 
-  function ligarEventosEtapaDetalhe(etapaId) {
+  function ligarEventosEtapaDetalhe(etapaId, etapa, partidas) {
+    const btnImprimir = viewEl.querySelector('#btn-imprimir-tabela');
+    if (btnImprimir) {
+      btnImprimir.addEventListener('click', () => imprimirTabelaEtapa(etapa, partidas));
+    }
+
     const formParticipante = viewEl.querySelector('#form-participante');
     if (formParticipante) {
       formParticipante.addEventListener('submit', async (ev) => {
@@ -665,6 +743,47 @@
         } catch (e) { mostrarToast(e.message, 'erro'); }
       });
     });
+
+    // Renomear jogador (corrige o cadastro em todo o site, nao so nesta etapa) -
+    // disponivel para admin/organizador mesmo em etapas ja encerradas.
+    viewEl.querySelectorAll('[data-editar-nome-jogador]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const jogadorId = btn.getAttribute('data-editar-nome-jogador');
+        const nomeAtual = btn.getAttribute('data-nome-atual');
+        const novoNome = prompt('Novo nome do jogador:', nomeAtual);
+        if (!novoNome || !novoNome.trim() || novoNome.trim() === nomeAtual) return;
+        try {
+          await api(`/jogadores/${jogadorId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ nome: novoNome.trim() }),
+          });
+          mostrarToast('Nome do jogador atualizado.');
+          viewEtapaDetalhe(etapaId);
+        } catch (e) { mostrarToast(e.message, 'erro'); }
+      });
+    });
+
+    const btnTravarEtapa = viewEl.querySelector('#btn-travar-etapa');
+    if (btnTravarEtapa) {
+      btnTravarEtapa.addEventListener('click', async () => {
+        if (!confirm('Finalizar esta etapa? Jogadores e organizadores não vão mais poder lançar ou corrigir resultados - só você.')) return;
+        try {
+          await api(`/etapas/${etapaId}/travar`, { method: 'POST' });
+          mostrarToast('Etapa finalizada.');
+          viewEtapaDetalhe(etapaId);
+        } catch (e) { mostrarToast(e.message, 'erro'); }
+      });
+    }
+    const btnDestravarEtapa = viewEl.querySelector('#btn-destravar-etapa');
+    if (btnDestravarEtapa) {
+      btnDestravarEtapa.addEventListener('click', async () => {
+        try {
+          await api(`/etapas/${etapaId}/destravar`, { method: 'POST' });
+          mostrarToast('Etapa reaberta para ajustes.');
+          viewEtapaDetalhe(etapaId);
+        } catch (e) { mostrarToast(e.message, 'erro'); }
+      });
+    }
 
     const btnEditarNomeEtapa = viewEl.querySelector('#btn-editar-nome-etapa');
     const formEditarNomeEtapa = viewEl.querySelector('#form-editar-nome-etapa');
@@ -944,27 +1063,14 @@
     const semestreAtual = agora.getMonth() < 6 ? 1 : 2;
 
     if (!window.__rankingEstado) {
-      window.__rankingEstado = { tipo: 'semestral', ano, semestre: semestreAtual };
+      window.__rankingEstado = { tipo: 'semestral', ano, semestre: semestreAtual, etapaId: null };
     }
     await renderRanking();
   }
 
-  async function renderRanking() {
-    const estado = window.__rankingEstado;
-    viewEl.innerHTML = '<div class="card"><p class="muted">Carregando ranking…</p></div>';
+  const MEDALHAS = { 1: '🥇', 2: '🥈', 3: '🥉' };
 
-    const periodo = estado.tipo === 'anual' ? String(estado.ano) : `${estado.ano}-${estado.semestre}`;
-    let dados;
-    try {
-      dados = await api(`/ranking?tipo=${estado.tipo}&periodo=${periodo}`);
-    } catch (e) {
-      viewEl.innerHTML = `<div class="card"><p class="form-error">${esc(e.message)}</p></div>`;
-      return;
-    }
-
-    const MEDALHAS = { 1: '🥇', 2: '🥈', 3: '🥉' };
-
-    const linhas = dados.ranking;
+  function tabelaRankingHtml(linhas, mensagemVazia) {
     const corpoTabela = linhas.length ? linhas.map((l) => `
       <tr>
         <td class="pos">${l.posicao}º ${MEDALHAS[l.posicao] || ''}</td>
@@ -975,36 +1081,114 @@
         <td>${l.gamesGanhos}</td>
         <td>${l.partidasJogadas}</td>
       </tr>
-    `).join('') : `<tr><td colspan="7" class="muted" style="white-space:normal;">Nenhum jogador inscrito neste período ainda.</td></tr>`;
+    `).join('') : `<tr><td colspan="7" class="muted" style="white-space:normal;">${esc(mensagemVazia)}</td></tr>`;
+
+    return `
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>#</th><th>Jogador</th><th>V</th><th>D</th><th>Saldo</th><th>Games</th><th>Jogos</th></tr>
+          </thead>
+          <tbody>${corpoTabela}</tbody>
+        </table>
+      </div>
+      <p class="form-hint" style="margin-top:12px;">Critérios de desempate, nesta ordem: número de vitórias, saldo de games, games ganhos e confronto direto.</p>
+    `;
+  }
+
+  async function renderRanking() {
+    const estado = window.__rankingEstado;
+    viewEl.innerHTML = '<div class="card"><p class="muted">Carregando ranking…</p></div>';
+
+    const cabecalhoTipos = `
+      <div class="card-title-row"><h1>Ranking</h1></div>
+      <div class="tag-select" style="margin-bottom:12px;">
+        <button data-tipo="semestral" class="${estado.tipo === 'semestral' ? 'active' : ''}">Semestral</button>
+        <button data-tipo="anual" class="${estado.tipo === 'anual' ? 'active' : ''}">Anual</button>
+        <button data-tipo="etapa" class="${estado.tipo === 'etapa' ? 'active' : ''}">Por etapa</button>
+      </div>
+    `;
+
+    if (estado.tipo === 'etapa') {
+      let etapas;
+      try {
+        ({ etapas } = await api('/etapas'));
+      } catch (e) {
+        viewEl.innerHTML = `<div class="card"><p class="form-error">${esc(e.message)}</p></div>`;
+        return;
+      }
+      // so etapas que ja tiveram sorteio/partidas lancadas fazem sentido aqui
+      etapas = etapas.filter((e) => e.status !== 'inscricoes');
+
+      if (!estado.etapaId || !etapas.some((e) => e.id === estado.etapaId)) {
+        estado.etapaId = etapas.length ? etapas[0].id : null;
+      }
+
+      const opcoesEtapas = etapas.map((e) => `
+        <option value="${e.id}" ${e.id === estado.etapaId ? 'selected' : ''}>${esc(e.nome)} · ${formatarData(e.data)}</option>
+      `).join('');
+
+      let corpoRanking = '<p class="empty-state">Nenhuma etapa com sorteio ou partidas lançadas ainda.</p>';
+      if (estado.etapaId) {
+        let dadosEtapa;
+        try {
+          dadosEtapa = await api(`/ranking/etapa/${estado.etapaId}`);
+        } catch (e) {
+          corpoRanking = `<p class="form-error">${esc(e.message)}</p>`;
+        }
+        if (dadosEtapa) {
+          corpoRanking = tabelaRankingHtml(dadosEtapa.ranking, 'Nenhum jogador inscrito nesta etapa.');
+        }
+      }
+
+      viewEl.innerHTML = '';
+      viewEl.appendChild(h(`
+        <div>
+          <div class="card">
+            ${cabecalhoTipos}
+            <div class="field" style="margin-bottom:0;">
+              <label>Etapa</label>
+              <select id="select-etapa-ranking" ${etapas.length ? '' : 'disabled'}>${opcoesEtapas}</select>
+            </div>
+          </div>
+          <div class="card">${corpoRanking}</div>
+        </div>
+      `));
+
+      viewEl.querySelectorAll('[data-tipo]').forEach((btn) => {
+        btn.addEventListener('click', () => { estado.tipo = btn.getAttribute('data-tipo'); renderRanking(); });
+      });
+      const selectEtapa = viewEl.querySelector('#select-etapa-ranking');
+      if (selectEtapa) {
+        selectEtapa.addEventListener('change', () => {
+          estado.etapaId = Number(selectEtapa.value);
+          renderRanking();
+        });
+      }
+      return;
+    }
+
+    const periodo = estado.tipo === 'anual' ? String(estado.ano) : `${estado.ano}-${estado.semestre}`;
+    let dados;
+    try {
+      dados = await api(`/ranking?tipo=${estado.tipo}&periodo=${periodo}`);
+    } catch (e) {
+      viewEl.innerHTML = `<div class="card"><p class="form-error">${esc(e.message)}</p></div>`;
+      return;
+    }
 
     viewEl.innerHTML = '';
     viewEl.appendChild(h(`
       <div>
         <div class="card">
-          <div class="card-title-row"><h1>Ranking</h1></div>
-          <div class="tag-select" style="margin-bottom:12px;">
-            <button data-tipo="semestral" class="${estado.tipo === 'semestral' ? 'active' : ''}">Semestral</button>
-            <button data-tipo="anual" class="${estado.tipo === 'anual' ? 'active' : ''}">Anual</button>
-          </div>
+          ${cabecalhoTipos}
           <div class="row-between" style="margin-bottom:6px;">
             <button class="btn btn-ghost btn-sm" id="btn-periodo-anterior">← Anterior</button>
             <strong>${esc(dados.rotulo)}</strong>
             <button class="btn btn-ghost btn-sm" id="btn-periodo-seguinte">Seguinte →</button>
           </div>
         </div>
-        <div class="card">
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>#</th><th>Jogador</th><th>V</th><th>D</th><th>Saldo</th><th>Games</th><th>Jogos</th>
-                </tr>
-              </thead>
-              <tbody>${corpoTabela}</tbody>
-            </table>
-          </div>
-          <p class="form-hint" style="margin-top:12px;">Critérios de desempate, nesta ordem: número de vitórias, saldo de games, games ganhos e confronto direto.</p>
-        </div>
+        <div class="card">${tabelaRankingHtml(dados.ranking, 'Nenhum jogador inscrito neste período ainda.')}</div>
       </div>
     `));
 
@@ -1033,5 +1217,151 @@
     estado.semestre += direcao;
     if (estado.semestre > 2) { estado.semestre = 1; estado.ano += 1; }
     if (estado.semestre < 1) { estado.semestre = 2; estado.ano -= 1; }
+  }
+
+  // ---------------------------------------------------------------------
+  // View: Perfis dos jogadores (radar de forças)
+  // ---------------------------------------------------------------------
+
+  const EIXOS_RADAR = [
+    { chave: 'geral', rotulo: 'Geral' },
+    { chave: 'ataque', rotulo: 'Ataque' },
+    { chave: 'consistencia', rotulo: 'Consistência' },
+    { chave: 'fisico', rotulo: 'Físico' },
+    { chave: 'defesa', rotulo: 'Defesa' },
+    { chave: 'teamplay', rotulo: 'Teamplay' },
+  ];
+
+  /** Desenha o hexagono SVG do radar a partir de um objeto {geral, ataque, ...} (valores 0-100). */
+  function desenharRadarSvg(radar) {
+    const tamanho = 280;
+    const centro = tamanho / 2;
+    const raioMax = tamanho / 2 - 46;
+    const n = EIXOS_RADAR.length;
+
+    function ponto(i, fracao) {
+      const angulo = -Math.PI / 2 + (i * 2 * Math.PI) / n;
+      return {
+        x: centro + Math.cos(angulo) * raioMax * fracao,
+        y: centro + Math.sin(angulo) * raioMax * fracao,
+      };
+    }
+
+    const aneis = [0.2, 0.4, 0.6, 0.8, 1].map((f) => {
+      const pts = EIXOS_RADAR.map((_, i) => ponto(i, f));
+      return `<polygon points="${pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')}" class="radar-anel" />`;
+    }).join('');
+
+    const eixosSvg = EIXOS_RADAR.map((_, i) => {
+      const p = ponto(i, 1);
+      return `<line x1="${centro}" y1="${centro}" x2="${p.x.toFixed(1)}" y2="${p.y.toFixed(1)}" class="radar-eixo" />`;
+    }).join('');
+
+    const pontosValor = EIXOS_RADAR.map((eixo, i) => ponto(i, clampPct(radar[eixo.chave]) / 100));
+    const poligono = `<polygon points="${pontosValor.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')}" class="radar-poligono" />`;
+    const bolinhas = pontosValor.map((p) => `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.5" class="radar-ponto" />`).join('');
+
+    const rotulos = EIXOS_RADAR.map((eixo, i) => {
+      const p = ponto(i, 1.22);
+      const valorP = ponto(i, clampPct(radar[eixo.chave]) / 100 + (radar[eixo.chave] >= 85 ? 0.1 : -0.12));
+      return `
+        <text x="${p.x.toFixed(1)}" y="${p.y.toFixed(1)}" class="radar-rotulo" text-anchor="middle">${esc(eixo.rotulo)}</text>
+        <text x="${valorP.x.toFixed(1)}" y="${valorP.y.toFixed(1)}" class="radar-valor" text-anchor="middle">${radar[eixo.chave]}</text>
+      `;
+    }).join('');
+
+    return `
+      <svg viewBox="0 0 ${tamanho} ${tamanho}" class="radar-svg" role="img" aria-label="Radar de forças">
+        ${aneis}
+        ${eixosSvg}
+        ${poligono}
+        ${bolinhas}
+        ${rotulos}
+      </svg>
+    `;
+  }
+
+  function clampPct(v) { return Math.max(0, Math.min(100, Number(v) || 0)); }
+
+  async function viewPerfis() {
+    viewEl.innerHTML = '<div class="card"><p class="muted">Carregando jogadores…</p></div>';
+    let jogadores;
+    try {
+      ({ jogadores } = await api('/perfis'));
+    } catch (e) {
+      viewEl.innerHTML = `<div class="card"><p class="form-error">${esc(e.message)}</p></div>`;
+      return;
+    }
+
+    if (!window.__perfilEstado) window.__perfilEstado = { jogadorId: jogadores.length ? jogadores[0].id : null };
+    const estado = window.__perfilEstado;
+    if (!jogadores.some((j) => j.id === estado.jogadorId)) {
+      estado.jogadorId = jogadores.length ? jogadores[0].id : null;
+    }
+
+    await renderPerfil(jogadores);
+  }
+
+  async function renderPerfil(jogadores) {
+    const estado = window.__perfilEstado;
+
+    const opcoes = jogadores.map((j) => `
+      <option value="${j.id}" ${j.id === estado.jogadorId ? 'selected' : ''}>${esc(j.nome)}</option>
+    `).join('');
+
+    let conteudo = '<p class="empty-state">Nenhum jogador com partidas disputadas ainda.</p>';
+    if (estado.jogadorId) {
+      let perfil;
+      try {
+        perfil = await api(`/perfis/${estado.jogadorId}`);
+      } catch (e) {
+        conteudo = `<p class="form-error">${esc(e.message)}</p>`;
+      }
+      if (perfil) {
+        conteudo = perfil.amostraInsuficiente ? `
+          <p class="empty-state">Este jogador ainda não tem partidas com resultado suficientes para calcular o radar.</p>
+        ` : `
+          <div class="radar-wrap">
+            ${desenharRadarSvg(perfil.radar)}
+          </div>
+          <p class="muted small" style="text-align:center;">
+            Calculado com base em ${perfil.partidasConsideradas} partida(s) em ${perfil.etapasConsideradas} etapa(s).
+          </p>
+        `;
+      }
+    }
+
+    viewEl.innerHTML = '';
+    viewEl.appendChild(h(`
+      <div>
+        <div class="card">
+          <div class="card-title-row"><h1>Perfis dos jogadores</h1></div>
+          <div class="field" style="margin-bottom:0;">
+            <label>Jogador</label>
+            <select id="select-jogador-perfil" ${jogadores.length ? '' : 'disabled'}>${opcoes}</select>
+          </div>
+        </div>
+        <div class="card">${conteudo}</div>
+        <div class="card">
+          <div class="card-title-row"><h2>Como calculamos cada força</h2></div>
+          <p class="help-box">Todos os indicadores vão de 0 a 100 e são calculados de forma consolidada, somando os jogos de todas as etapas já disputadas (não é um valor por período).</p>
+          <p class="help-box"><strong>Ataque</strong> - média de games conquistados pela dupla do jogador por partida (de 0 a 3 por jogo).</p>
+          <p class="help-box"><strong>Defesa</strong> - o inverso: quanto menos games a dupla cede ao adversário por partida, maior a nota.</p>
+          <p class="help-box"><strong>Consistência</strong> - o quanto o saldo de games varia de partida para partida. Pouca oscilação entre goleadas e derrotas apertadas resulta em nota mais alta.</p>
+          <p class="help-box"><strong>Físico</strong> - compara o desempenho do jogador na primeira metade das rodadas de uma etapa com a segunda metade. Quem mantém (ou melhora) o nível de jogo nas rodadas finais - quando o desgaste físico mais pesa - recebe nota mais alta.</p>
+          <p class="help-box"><strong>Teamplay</strong> - taxa de vitória do jogador considerando cada parceiro diferente que já teve (o sorteio troca as duplas a cada etapa); joga bem com qualquer parceiro, nota mais alta - só rende bem ao lado de uma pessoa específica, nota mais baixa.</p>
+          <p class="help-box"><strong>Geral</strong> - a média simples dos cinco indicadores acima.</p>
+          <p class="help-box">Jogadores com poucas partidas disputadas têm os indicadores suavizados em direção a uma nota neutra (50), para 1 ou 2 jogos isolados não gerarem notas extremas pouco confiáveis. A nota passa a valer integralmente conforme mais partidas (ou etapas, ou parceiros diferentes) vão sendo disputadas.</p>
+        </div>
+      </div>
+    `));
+
+    const select = viewEl.querySelector('#select-jogador-perfil');
+    if (select) {
+      select.addEventListener('change', () => {
+        estado.jogadorId = Number(select.value);
+        renderPerfil(jogadores);
+      });
+    }
   }
 })();

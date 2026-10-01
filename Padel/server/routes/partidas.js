@@ -22,6 +22,13 @@ router.put('/:id/resultado', autenticar, (req, res) => {
   const partida = db.prepare('SELECT * FROM partidas WHERE id = ?').get(req.params.id);
   if (!partida) return res.status(404).json({ erro: 'Partida nao encontrada.' });
 
+  const etapa = db.prepare('SELECT travada FROM etapas WHERE id = ?').get(partida.etapa_id);
+  if (etapa && etapa.travada && req.usuario.role !== 'admin') {
+    return res.status(403).json({
+      erro: 'Esta etapa foi finalizada pelo administrador. Somente ele pode ajustar resultados agora.',
+    });
+  }
+
   const jaTemResultado = partida.games_equipe1 !== null && partida.games_equipe2 !== null;
   if (jaTemResultado && req.usuario.role !== 'admin') {
     return res.status(403).json({

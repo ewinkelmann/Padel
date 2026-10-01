@@ -67,11 +67,45 @@ de resultados e ranking semestral/anual com criterios de desempate.
   manualmente) - mas continua podendo receber mais partidas retroativas a
   qualquer momento. O administrador tambem pode excluir uma partida
   lancada por engano (botao "Excluir partida").
+- **Imprimir tabela de jogos.** Na pagina de uma etapa com sorteio (ou partidas)
+  ja lancadas, o botao **"🖨️ Imprimir tabela"** gera uma folha simples para
+  levar a quadra: rodada, dupla 1 x dupla 2, com caixinhas em branco para
+  anotar o placar a mao. Se uma partida ja tiver resultado lancado no site,
+  o placar aparece pre-preenchido na folha.
 - **Ranking individual semestral e anual**, calculado automaticamente a
   partir dos resultados de todas as etapas do periodo, nesta ordem de
   desempate: (1) numero de vitorias, (2) saldo de games, (3) games ganhos,
   (4) confronto direto entre os jogadores empatados. O 1º, 2º e 3º colocados
   aparecem com medalha (🥇🥈🥉) ao lado da posicao.
+- **Ranking por etapa (historico).** Na pagina de Ranking, a aba "Por etapa"
+  mostra um seletor com todas as etapas ja sorteadas/lancadas; ao escolher
+  uma, aparece a classificacao estatica so daquela etapa (mesmos criterios de
+  desempate do ranking semestral/anual). E um retrato fixo de como ficou cada
+  etapa especifica, sem somar com as demais.
+- **Finalizar etapa (travar resultados).** Depois que todos os resultados de
+  uma etapa ja foram lancados, o administrador pode clicar em **"🔒 Finalizar
+  etapa"**: a partir dai, jogadores e organizadores deixam de conseguir
+  lancar ou corrigir qualquer resultado daquela etapa - so o proprio
+  administrador. O botao vira **"🔓 Ajustar"** (visivel so para o admin) caso
+  seja preciso reabrir para algum ajuste pontual depois.
+- **Editar nome de jogador em qualquer etapa.** Ao lado do nome de cada
+  jogador inscrito numa etapa (inclusive em etapas ja encerradas ou
+  finalizadas), administrador e organizador tem um icone de lapis (✏️) para
+  corrigir o nome. Como o nome pertence ao cadastro do jogador, a correcao
+  vale para o site inteiro (ranking, outras etapas, perfis), nao so ali.
+- **Perfis dos jogadores (radar de forcas).** Uma nova secao "Perfis" mostra,
+  para cada jogador que ja disputou partidas, um radar com 6 indicadores de 0
+  a 100 calculados de forma consolidada (somando todas as etapas ja
+  disputadas): Geral, Ataque, Consistencia, Fisico, Defesa e Teamplay. A
+  propria pagina explica o racional de cada um. Em resumo: Ataque e Defesa
+  vem da media de games ganhos/cedidos por partida; Consistencia mede o
+  quanto o saldo de games varia de jogo para jogo; Fisico compara o
+  desempenho nas rodadas finais de uma etapa com as rodadas iniciais (queda
+  ou manutencao de nivel); Teamplay mede a taxa de vitoria do jogador com
+  cada parceiro diferente que ja teve (penalizando quem so rende bem com uma
+  pessoa especifica); e Geral e a media dos outros cinco. Jogadores com poucas
+  partidas tem os indicadores suavizados em direcao a uma nota neutra (50),
+  para uma amostra pequena nao gerar notas extremas.
 
 ## Como publicar o site (~10-15 minutos)
 
@@ -244,9 +278,9 @@ data/              banco de dados SQLite fica aqui (nao apagar ao fazer deploy!)
 ## Duvidas comuns
 
 **Um jogador errou o nome ao se inscrever numa etapa - da pra corrigir?**
-Sim: o administrador pode renomear um jogador em qualquer tela de gestao
-futura via API (`PUT /api/jogadores/:id`); uma tela dedicada para isso pode
-ser adicionada depois, se for util no dia a dia.
+Sim: na pagina de qualquer etapa (mesmo ja encerrada), administrador e
+organizador tem um icone de lapis (✏️) ao lado do nome de cada jogador
+inscrito, que corrige o nome em todo o site (ranking, perfis, outras etapas).
 
 **Da pra ter mais de 8 jogadores numa etapa?**
 O sorteio automatico foi construido exatamente para a regra combinada (ate 7

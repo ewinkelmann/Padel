@@ -286,4 +286,23 @@ router.post('/:id/partidas', autenticar, exigirAdmin, (req, res) => {
   res.status(201).json({ ok: true, partidaId });
 });
 
+// Finaliza/trava a etapa: a partir daqui, somente o administrador pode lancar
+// ou corrigir resultados das partidas (jogadores e organizadores ficam
+// bloqueados). Pensado para ser usado depois que todos os resultados da
+// etapa ja foram preenchidos, evitando alteracoes indevidas depois.
+router.post('/:id/travar', autenticar, exigirAdmin, (req, res) => {
+  const etapa = buscarEtapaOu404(req.params.id, res);
+  if (!etapa) return;
+  db.prepare('UPDATE etapas SET travada = 1 WHERE id = ?').run(etapa.id);
+  res.json({ ok: true });
+});
+
+// Reabre uma etapa travada, para o administrador poder fazer algum ajuste.
+router.post('/:id/destravar', autenticar, exigirAdmin, (req, res) => {
+  const etapa = buscarEtapaOu404(req.params.id, res);
+  if (!etapa) return;
+  db.prepare('UPDATE etapas SET travada = 0 WHERE id = ?').run(etapa.id);
+  res.json({ ok: true });
+});
+
 module.exports = router;

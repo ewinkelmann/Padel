@@ -1,6 +1,6 @@
 const express = require('express');
 const db = require('../db');
-const { autenticar, exigirAdmin } = require('../lib/auth');
+const { autenticar, exigirAdmin, permitirPapeis } = require('../lib/auth');
 
 const router = express.Router();
 
@@ -17,7 +17,10 @@ router.get('/', autenticar, (req, res) => {
   res.json({ jogadores });
 });
 
-router.put('/:id', autenticar, exigirAdmin, (req, res) => {
+// Renomear um jogador (corrigir erro de digitacao, por exemplo) e liberado para
+// o administrador e para organizadores - inclusive em etapas ja encerradas,
+// ja que e uma correcao de cadastro, nao do resultado de uma partida.
+router.put('/:id', autenticar, permitirPapeis('admin', 'organizador'), (req, res) => {
   const { nome } = req.body || {};
   if (!nome || !nome.trim()) return res.status(400).json({ erro: 'Informe um nome.' });
   const existe = db.prepare('SELECT id FROM jogadores WHERE id = ?').get(req.params.id);
