@@ -205,6 +205,9 @@ tfoot td { color: var(--muted); font-size: 12px; padding-top: 8px; }
   background: var(--court-light); color: var(--court-text);
 }
 .match-court.quadra-2 { background: #fff3d6; color: #8a5a00; }
+/* Selos dos jogos do Hall da Fama (em vez do numero da quadra) */
+.match-court.quadra-final { background: var(--ball); color: var(--court-dark); }
+.match-court.quadra-ultima { background: var(--border); color: var(--muted); }
 @media (prefers-color-scheme: dark) {
   .match-court.quadra-2 { background: #3a2c0f; color: #f0c869; }
 }

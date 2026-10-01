@@ -77,7 +77,11 @@
   // se a partida ja tiver resultado lancado no site, ele aparece pre-preenchido.
   function imprimirTabelaEtapa(etapa, partidas) {
     const rodadas = {};
-    partidas.forEach((p) => { (rodadas[p.rodada] = rodadas[p.rodada] || []).push(p); });
+    // os jogos do Hall da Fama (Finalissima/Ultimalissima) ficam de fora da folha
+    // de rodadas - sao impressos sob demanda, nao fazem parte do sorteio normal.
+    partidas.filter((p) => !p.tipo || p.tipo === 'normal').forEach((p) => {
+      (rodadas[p.rodada] = rodadas[p.rodada] || []).push(p);
+    });
 
     const linhas = Object.keys(rodadas).sort((a, b) => a - b).map((r) => {
       const jogos = rodadas[r].slice().sort((a, b) => a.quadra - b.quadra);
@@ -145,11 +149,14 @@
     }
     topbarEl.hidden = false;
     const rotaAtual = location.hash.replace('#', '') || '/etapas';
+    const podeOrganizarNav = usuarioAtual.role === 'admin' || usuarioAtual.role === 'organizador';
     const links = [
       ['/etapas', 'Etapas'],
       ['/ranking', 'Ranking'],
       ['/perfis', 'Perfis'],
+      ['/hall-da-fama', 'Hall da Fama'],
     ];
+    if (podeOrganizarNav) links.push(['/inscritos', 'Inscritos']);
     if (usuarioAtual.role === 'admin') links.push(['/usuarios', 'Usuários']);
     navLinksEl.innerHTML = links.map(([rota, label]) => {
       const ativo = rotaAtual.startsWith(rota) ? ' class="active"' : '';
@@ -203,6 +210,8 @@
       if (rota.startsWith('/etapas')) return viewEtapas();
       if (rota.startsWith('/ranking')) return viewRanking();
       if (rota.startsWith('/perfis')) return viewPerfis();
+      if (rota.startsWith('/hall-da-fama')) return viewHallDaFama();
+      if (rota.startsWith('/inscritos')) return viewInscritos();
       if (rota.startsWith('/usuarios')) return viewUsuarios();
       if (rota.startsWith('/conta')) return viewConta();
       location.hash = '#/etapas';
@@ -522,21 +531,13 @@
 
     const painelInscricao = podeInscrever ? `
       <div id="erro-participante"></div>
-      <div class="field" style="margin-bottom:10px;">
-        <label>Jogador já cadastrado</label>
+      <div class="field" style="margin-bottom:0;">
+        <label>Adicionar jogador inscrito</label>
         <select id="select-jogador-existente">
           <option value="">+ Selecionar da lista…</option>
         </select>
       </div>
-      <form id="form-participante" class="row" style="margin-top:0;">
-        <div class="field" style="flex:1; min-width:180px; margin-bottom:0;">
-          <label>Ou digite um nome novo</label>
-          <input type="text" name="nome" placeholder="Nome do jogador" required list="lista-jogadores" />
-        </div>
-        <button class="btn btn-sm" type="submit" style="align-self:flex-end;">Adicionar</button>
-      </form>
-      <datalist id="lista-jogadores"></datalist>
-      <p class="form-hint">${participantes.length}/8 jogadores inscritos. Mínimo de 4 para sortear.</p>
+      <p class="form-hint">${participantes.length}/8 jogadores inscritos. Mínimo de 4 para sortear. Não achou o nome? ${podeOrganizar ? 'Cadastre o atleta na seção <a class="link-btn" href="#/inscritos">Inscritos</a> primeiro.' : 'Peça para um organizador cadastrá-lo na seção Inscritos.'}</p>
     ` : '';
 
     const painelSorteio = podeOrganizar && podeInscrever ? `
@@ -558,8 +559,13 @@
       </div>
     ` : '';
 
+    // Jogos do Hall da Fama (Finalissima/Ultimalissima) ficam fora das rodadas
+    // normais - tem secao propria mais abaixo.
+    const partidasNormais = partidas.filter((p) => !p.tipo || p.tipo === 'normal');
+    const partidasHallFama = partidas.filter((p) => p.tipo && p.tipo !== 'normal');
+
     const rodadas = {};
-    partidas.forEach((p) => { (rodadas[p.rodada] = rodadas[p.rodada] || []).push(p); });
+    partidasNormais.forEach((p) => { (rodadas[p.rodada] = rodadas[p.rodada] || []).push(p); });
 
     const partidasHtml = Object.keys(rodadas).length ? Object.keys(rodadas).sort((a, b) => a - b).map((r) => {
       const jogosDaRodada = rodadas[r].slice().sort((a, b) => a.quadra - b.quadra);
@@ -570,6 +576,31 @@
         <div class="${duasQuadras ? 'grid-cols' : ''}">${cards}</div>
       `;
     }).join('') : `<div class="empty-state">${podeInscrever ? 'O sorteio ainda não foi realizado.' : 'Nenhuma partida.'}</div>`;
+
+    // Hall da Fama: a Finalissima (e, com 8 jogadores, a Ultimalissima) so podem
+    // ser geradas depois que todas as partidas normais ja tiverem placar lancado.
+    const todasNormaisComResultado = partidasNormais.length > 0 &&
+      partidasNormais.every((p) => p.games_equipe1 !== null && p.games_equipe2 !== null);
+    const hallFamaJaGerado = partidasHallFama.length > 0;
+    const podeGerarHallFama = podeOrganizar && !hallFamaJaGerado && todasNormaisComResultado && participantes.length >= 4;
+
+    const finalissima = partidasHallFama.find((p) => p.tipo === 'finalissima');
+    const ultimalissima = partidasHallFama.find((p) => p.tipo === 'ultimalissima');
+    const cardsHallFama = [finalissima, ultimalissima].filter(Boolean)
+      .map((p) => renderMatchCard(p, isAdmin, travada)).join('');
+
+    const painelHallFama = (podeGerarHallFama || hallFamaJaGerado) ? `
+      <div class="card">
+        <div class="card-title-row"><h2>🏆 Hall da Fama desta etapa</h2></div>
+        ${hallFamaJaGerado ? cardsHallFama : `
+          <p class="form-hint">
+            A Finalíssima (1º e 4º do ranking da etapa contra 2º e 3º)${participantes.length >= 8 ? ' e a Ultimalíssima (5º e 8º contra 6º e 7º)' : ''}
+            já podem ser geradas.
+          </p>
+        `}
+        ${podeGerarHallFama ? '<button class="btn btn-accent" id="btn-gerar-hall-fama" style="margin-top:10px;">🏆 Gerar jogos do Hall da Fama</button>' : ''}
+      </div>
+    ` : '';
 
     const painelPartidaManual = isAdmin ? `
       <div class="divider"></div>
@@ -651,17 +682,19 @@
         <div class="card">
           <div class="card-title-row">
             <h2>Partidas</h2>
-            ${partidas.length ? '<button class="btn btn-ghost btn-sm" id="btn-imprimir-tabela">🖨️ Imprimir tabela</button>' : ''}
+            ${partidasNormais.length ? '<button class="btn btn-ghost btn-sm" id="btn-imprimir-tabela">🖨️ Imprimir tabela</button>' : ''}
           </div>
           ${partidasHtml}
           ${painelPartidaManual}
         </div>
+        ${painelHallFama}
         <datalist id="lista-jogadores"></datalist>
       </div>
     `));
 
-    // datalist com jogadores existentes (autocomplete) + lista suspensa para
-    // inscrever rapido alguem que ja jogou alguma etapa antes, sem redigitar o nome.
+    // datalist com todos os jogadores ja cadastrados (autocomplete da partida
+    // retroativa) + lista suspensa so com quem esta marcado como "inscrito" na
+    // secao Inscritos, para adicionar rapido um participante na etapa.
     api('/jogadores').then(({ jogadores }) => {
       const dl = viewEl.querySelector('#lista-jogadores');
       if (dl) dl.innerHTML = jogadores.map((j) => `<option value="${esc(j.nome)}"></option>`).join('');
@@ -669,7 +702,7 @@
       const select = viewEl.querySelector('#select-jogador-existente');
       if (select) {
         const idsJaInscritos = new Set(participantes.map((p) => p.id));
-        const disponiveis = jogadores.filter((j) => !idsJaInscritos.has(j.id));
+        const disponiveis = jogadores.filter((j) => j.inscrito && !idsJaInscritos.has(j.id));
         select.innerHTML = '<option value="">+ Selecionar da lista…</option>' +
           disponiveis.map((j) => `<option value="${esc(j.nome)}">${esc(j.nome)}</option>`).join('');
         select.addEventListener('change', async () => {
@@ -731,10 +764,16 @@
       ${btnExcluir}
     `;
 
-    const nomeQuadra = `Quadra ${String(p.quadra).padStart(2, '0')}`;
+    // Rotulo da quadra - os jogos do Hall da Fama ganham um selo proprio em vez
+    // do numero da quadra, ja que nao fazem parte do sorteio normal.
+    const rotulosEspeciais = { finalissima: '🏆 Finalíssima', ultimalissima: '🥄 Ultimalíssima' };
+    const nomeQuadra = rotulosEspeciais[p.tipo] || `Quadra ${String(p.quadra).padStart(2, '0')}`;
+    const classeQuadra = p.tipo === 'finalissima' ? 'quadra-final'
+      : p.tipo === 'ultimalissima' ? 'quadra-ultima'
+      : `quadra-${p.quadra}`;
     return `
       <div class="match-card">
-        <div class="match-court quadra-${p.quadra}">${nomeQuadra}</div>
+        <div class="match-court ${classeQuadra}">${nomeQuadra}</div>
         ${corpo}
       </div>
     `;
@@ -746,19 +785,17 @@
       btnImprimir.addEventListener('click', () => imprimirTabelaEtapa(etapa, partidas));
     }
 
-    const formParticipante = viewEl.querySelector('#form-participante');
-    if (formParticipante) {
-      formParticipante.addEventListener('submit', async (ev) => {
-        ev.preventDefault();
-        const fd = new FormData(ev.target);
+    const btnGerarHallFama = viewEl.querySelector('#btn-gerar-hall-fama');
+    if (btnGerarHallFama) {
+      btnGerarHallFama.addEventListener('click', async () => {
+        btnGerarHallFama.disabled = true;
         try {
-          await api(`/etapas/${etapaId}/participantes`, {
-            method: 'POST',
-            body: JSON.stringify({ nome: fd.get('nome') }),
-          });
+          await api(`/etapas/${etapaId}/hall-da-fama`, { method: 'POST' });
+          mostrarToast('Jogos do Hall da Fama gerados!');
           viewEtapaDetalhe(etapaId);
         } catch (e) {
-          viewEl.querySelector('#erro-participante').innerHTML = `<div class="form-error">${esc(e.message)}</div>`;
+          mostrarToast(e.message, 'erro');
+          btnGerarHallFama.disabled = false;
         }
       });
     }
@@ -1019,6 +1056,180 @@
         }
       });
     });
+  }
+
+  // ---------------------------------------------------------------------
+  // View: Inscritos (atletas aptos a jogar etapas - admin/organizador)
+  // ---------------------------------------------------------------------
+
+  async function viewInscritos() {
+    viewEl.innerHTML = '<div class="card"><p class="muted">Carregando inscritos…</p></div>';
+    let dados;
+    try {
+      dados = await api('/inscritos');
+    } catch (e) {
+      viewEl.innerHTML = `<div class="card"><p class="form-error">${esc(e.message)}</p></div>`;
+      return;
+    }
+
+    const linhas = dados.jogadores.map((j) => `
+      <tr>
+        <td class="player-name">${esc(j.nome)}</td>
+        <td class="muted small">${j.partidas_disputadas}</td>
+        <td>
+          <label class="row" style="gap:6px; margin-bottom:0; font-weight:600;">
+            <input type="checkbox" data-inscrito="${j.id}" ${j.inscrito ? 'checked' : ''} />
+            Inscrito
+          </label>
+        </td>
+        <td>
+          <label class="row" style="gap:6px; margin-bottom:0; font-weight:600;">
+            <input type="checkbox" data-mensalista="${j.id}" ${j.mensalista ? 'checked' : ''} />
+            Mensalista
+          </label>
+        </td>
+      </tr>
+    `).join('');
+
+    viewEl.innerHTML = '';
+    viewEl.appendChild(h(`
+      <div>
+        <div class="card">
+          <div class="card-title-row"><h1>Inscritos</h1></div>
+          <p class="help-box">Aqui ficam os atletas aptos a jogar as etapas. Só quem estiver marcado como <strong>Inscrito</strong> aparece na lista suspensa de inclusão de jogadores numa etapa. Só quem estiver <strong>Inscrito</strong> e também <strong>Mensalista</strong> entra no ranking geral (semestral/anual) - o ranking por etapa e os perfis continuam mostrando todo mundo normalmente.</p>
+          <div id="erro-novo-inscrito"></div>
+          <form id="form-novo-inscrito" class="row" style="margin-top:0;">
+            <div class="field" style="flex:1; min-width:180px; margin-bottom:0;">
+              <label>Nome do atleta</label>
+              <input type="text" name="nome" placeholder="Nome completo" required />
+            </div>
+            <label class="row" style="gap:6px; margin-bottom:0; align-self:flex-end; padding-bottom:11px; font-weight:600;">
+              <input type="checkbox" name="mensalista" />
+              Mensalista
+            </label>
+            <button class="btn btn-sm" type="submit" style="align-self:flex-end;">Adicionar</button>
+          </form>
+        </div>
+        <div class="card">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Nome</th><th>Jogos</th><th>Inscrito</th><th>Mensalista</th></tr></thead>
+              <tbody>${linhas || '<tr><td colspan="4" class="muted">Nenhum atleta cadastrado ainda.</td></tr>'}</tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `));
+
+    viewEl.querySelector('#form-novo-inscrito').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const fd = new FormData(ev.target);
+      const btn = ev.target.querySelector('button');
+      btn.disabled = true;
+      try {
+        await api('/inscritos', {
+          method: 'POST',
+          body: JSON.stringify({ nome: fd.get('nome'), mensalista: !!fd.get('mensalista') }),
+        });
+        mostrarToast('Atleta adicionado.');
+        viewInscritos();
+      } catch (e) {
+        viewEl.querySelector('#erro-novo-inscrito').innerHTML = `<div class="form-error">${esc(e.message)}</div>`;
+        btn.disabled = false;
+      }
+    });
+
+    viewEl.querySelectorAll('[data-inscrito]').forEach((chk) => {
+      chk.addEventListener('change', async () => {
+        chk.disabled = true;
+        try {
+          await api(`/inscritos/${chk.getAttribute('data-inscrito')}`, {
+            method: 'PUT',
+            body: JSON.stringify({ inscrito: chk.checked }),
+          });
+          mostrarToast('Atualizado.');
+        } catch (e) {
+          mostrarToast(e.message, 'erro');
+          chk.checked = !chk.checked;
+        } finally {
+          chk.disabled = false;
+        }
+      });
+    });
+
+    viewEl.querySelectorAll('[data-mensalista]').forEach((chk) => {
+      chk.addEventListener('change', async () => {
+        chk.disabled = true;
+        try {
+          await api(`/inscritos/${chk.getAttribute('data-mensalista')}`, {
+            method: 'PUT',
+            body: JSON.stringify({ mensalista: chk.checked }),
+          });
+          mostrarToast('Atualizado.');
+        } catch (e) {
+          mostrarToast(e.message, 'erro');
+          chk.checked = !chk.checked;
+        } finally {
+          chk.disabled = false;
+        }
+      });
+    });
+  }
+
+  // ---------------------------------------------------------------------
+  // View: Hall da Fama (Finalíssima / Ultimalíssima de cada etapa)
+  // ---------------------------------------------------------------------
+
+  async function viewHallDaFama() {
+    viewEl.innerHTML = '<div class="card"><p class="muted">Carregando Hall da Fama…</p></div>';
+    let itens;
+    try {
+      ({ itens } = await api('/hall-da-fama'));
+    } catch (e) {
+      viewEl.innerHTML = `<div class="card"><p class="form-error">${esc(e.message)}</p></div>`;
+      return;
+    }
+
+    function jogoHtml(jogo, titulo) {
+      if (!jogo) return '';
+      const temResultado = jogo.games_equipe1 !== null && jogo.games_equipe2 !== null;
+      const time1Venceu = temResultado && jogo.games_equipe1 > jogo.games_equipe2;
+      const time2Venceu = temResultado && jogo.games_equipe2 > jogo.games_equipe1;
+      const nomesTime = (equipe) => equipe.map((j) => esc(j.nome)).join(' / ');
+      return `
+        <div class="match-card">
+          <div class="match-court ${titulo.indexOf('Final') !== -1 ? 'quadra-final' : 'quadra-ultima'}">${esc(titulo)}</div>
+          <div class="match-teams">
+            <span class="team ${time1Venceu ? 'venceu' : ''}">${nomesTime(jogo.equipe1)}</span>
+            ${temResultado ? `<span class="score-display">${jogo.games_equipe1} × ${jogo.games_equipe2}</span>` : '<span class="vs">vs</span>'}
+            <span class="team ${time2Venceu ? 'venceu' : ''}">${nomesTime(jogo.equipe2)}</span>
+          </div>
+          ${!temResultado ? '<p class="form-hint">Aguardando placar.</p>' : ''}
+        </div>
+      `;
+    }
+
+    const corpo = itens.length ? itens.map((item) => `
+      <div class="card">
+        <div class="card-title-row">
+          <h2>${esc(item.etapa.nome)}</h2>
+          <span class="muted small">${formatarData(item.etapa.data)}</span>
+        </div>
+        ${jogoHtml(item.finalissima, '🏆 Finalíssima')}
+        ${jogoHtml(item.ultimalissima, '🥄 Ultimalíssima')}
+      </div>
+    `).join('') : '<div class="empty-state">Nenhum jogo do Hall da Fama gerado ainda. Eles aparecem aqui assim que a Finalíssima (ou Ultimalíssima) de uma etapa for gerada na página da própria etapa.</div>';
+
+    viewEl.innerHTML = '';
+    viewEl.appendChild(h(`
+      <div>
+        <div class="card">
+          <div class="card-title-row"><h1>Hall da Fama</h1></div>
+          <p class="help-box">Ao final de cada etapa, com base no ranking do dia, dois jogos extras podem ser disputados: a <strong>Finalíssima</strong>, entre o 1º e o 2º colocados, duplas montadas com o 1º e o 4º de um lado e o 2º e o 3º do outro; e, quando a etapa tiver 8 jogadores, a <strong>Ultimalíssima</strong>, entre os 4 últimos colocados, com o 5º e o 8º de um lado e o 6º e o 7º do outro. Esses jogos não contam para o ranking geral nem para os perfis - ficam registrados aqui.</p>
+        </div>
+        ${corpo}
+      </div>
+    `));
   }
 
   // ---------------------------------------------------------------------

@@ -3,6 +3,7 @@ const db = require('../db');
 const { autenticar, exigirAdmin, permitirPapeis } = require('../lib/auth');
 const { gerarSorteio } = require('../lib/sorteio');
 const { validarPlacar } = require('../lib/placares');
+const { calcularRankingEtapa } = require('../lib/ranking');
 
 const router = express.Router();
 
@@ -28,8 +29,8 @@ router.get('/', autenticar, (req, res) => {
   const etapas = db
     .prepare(
       `SELECT e.*, (SELECT COUNT(*) FROM etapa_participantes ep WHERE ep.etapa_id = e.id) AS total_participantes,
-              (SELECT COUNT(*) FROM partidas p WHERE p.etapa_id = e.id) AS total_partidas,
-              (SELECT COUNT(*) FROM partidas p WHERE p.etapa_id = e.id AND p.games_equipe1 IS NOT NULL) AS partidas_com_resultado
+              (SELECT COUNT(*) FROM partidas p WHERE p.etapa_id = e.id AND p.tipo = 'normal') AS total_partidas,
+              (SELECT COUNT(*) FROM partidas p WHERE p.etapa_id = e.id AND p.tipo = 'normal' AND p.games_equipe1 IS NOT NULL) AS partidas_com_resultado
        FROM etapas e ORDER BY e.data DESC, e.id DESC`
     )
     .all();
@@ -105,8 +106,10 @@ router.delete('/:id', autenticar, exigirAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
-// Qualquer usuario autenticado pode incluir nomes de jogadores na etapa
-// (cria o jogador se o nome ainda nao existir no sistema).
+// Qualquer usuario autenticado pode incluir, numa etapa, um jogador que ja
+// esteja cadastrado na secao "Inscritos" (marcado como "inscrito" = apto a
+// jogar etapas). Nao cria mais jogadores novos por aqui - um atleta precisa
+// ser cadastrado antes na secao "Inscritos" (admin/organizador).
 router.post('/:id/participantes', autenticar, (req, res) => {
   const etapa = buscarEtapaOu404(req.params.id, res);
   if (!etapa) return;
@@ -124,7 +127,15 @@ router.post('/:id/participantes', autenticar, (req, res) => {
   }
 
   const nomeLimpo = nome.trim();
-  const jogadorId = resolverOuCriarJogador(nomeLimpo);
+  const jogadorInscrito = db
+    .prepare('SELECT id FROM jogadores WHERE nome = ? COLLATE NOCASE AND inscrito = 1')
+    .get(nomeLimpo);
+  if (!jogadorInscrito) {
+    return res.status(400).json({
+      erro: 'Este atleta nao esta na lista de Inscritos. Cadastre-o la antes de inclui-lo na etapa.',
+    });
+  }
+  const jogadorId = jogadorInscrito.id;
 
   const jaInscrito = db
     .prepare('SELECT 1 FROM etapa_participantes WHERE etapa_id = ? AND jogador_id = ?')
@@ -276,9 +287,9 @@ router.post('/:id/partidas', autenticar, exigirAdmin, (req, res) => {
 
     // uma etapa que ainda estava em "inscricoes" passa a ser tratada como manual
     const novoModo = etapa.status === 'inscricoes' ? 'manual' : etapa.modo;
-    const total = db.prepare('SELECT COUNT(*) AS n FROM partidas WHERE etapa_id = ?').get(etapa.id).n;
+    const total = db.prepare("SELECT COUNT(*) AS n FROM partidas WHERE etapa_id = ? AND tipo = 'normal'").get(etapa.id).n;
     const comResultado = db
-      .prepare('SELECT COUNT(*) AS n FROM partidas WHERE etapa_id = ? AND games_equipe1 IS NOT NULL')
+      .prepare("SELECT COUNT(*) AS n FROM partidas WHERE etapa_id = ? AND tipo = 'normal' AND games_equipe1 IS NOT NULL")
       .get(etapa.id).n;
     const novoStatus = total > 0 && total === comResultado ? 'finalizada' : 'sorteada';
     db.prepare('UPDATE etapas SET modo = ?, status = ? WHERE id = ?').run(novoModo, novoStatus, etapa.id);
@@ -307,6 +318,60 @@ router.post('/:id/destravar', autenticar, exigirAdmin, (req, res) => {
   if (!etapa) return;
   db.prepare('UPDATE etapas SET travada = 0 WHERE id = ?').run(etapa.id);
   res.json({ ok: true });
+});
+
+// Gera os jogos do Hall da Fama desta etapa (Finalissima entre os 4 primeiros
+// do ranking do dia - 1º e 4º contra 2º e 3º - e, se forem 8 jogadores,
+// tambem a Ultimalissima entre os 4 ultimos - 5º e 8º contra 6º e 7º). Liberado
+// para admin e organizador, assim como o sorteio. So pode ser feito uma vez por
+// etapa e so depois que todas as partidas normais ja tiverem placar lancado,
+// para o ranking usado na hora de montar as duplas ser definitivo.
+router.post('/:id/hall-da-fama', autenticar, permitirPapeis('admin', 'organizador'), (req, res) => {
+  const etapa = buscarEtapaOu404(req.params.id, res);
+  if (!etapa) return;
+
+  const jaGerado = db
+    .prepare(`SELECT COUNT(*) AS n FROM partidas WHERE etapa_id = ? AND tipo != 'normal'`)
+    .get(etapa.id);
+  if (jaGerado.n > 0) {
+    return res.status(409).json({ erro: 'Os jogos do Hall da Fama desta etapa ja foram gerados.' });
+  }
+
+  const totalNormal = db
+    .prepare("SELECT COUNT(*) AS n FROM partidas WHERE etapa_id = ? AND tipo = 'normal'")
+    .get(etapa.id).n;
+  const comResultado = db
+    .prepare("SELECT COUNT(*) AS n FROM partidas WHERE etapa_id = ? AND tipo = 'normal' AND games_equipe1 IS NOT NULL")
+    .get(etapa.id).n;
+  if (totalNormal === 0 || totalNormal !== comResultado) {
+    return res.status(409).json({
+      erro: 'Lance o resultado de todas as partidas normais da etapa antes de gerar os jogos do Hall da Fama.',
+    });
+  }
+
+  const { ranking } = calcularRankingEtapa(etapa.id);
+  if (ranking.length < 4) {
+    return res.status(409).json({ erro: 'E preciso pelo menos 4 jogadores com partidas disputadas para gerar a Finalissima.' });
+  }
+
+  const porPosicao = {};
+  ranking.forEach((l) => { porPosicao[l.posicao] = l.jogadorId; });
+
+  const inserir = db.prepare(
+    `INSERT INTO partidas (etapa_id, rodada, quadra, equipe1_j1, equipe1_j2, equipe2_j1, equipe2_j2, tipo)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+
+  const geraUltimalissima = ranking.length >= 8;
+  const transacao = db.transaction(() => {
+    inserir.run(etapa.id, 0, 1, porPosicao[1], porPosicao[4], porPosicao[2], porPosicao[3], 'finalissima');
+    if (geraUltimalissima) {
+      inserir.run(etapa.id, 0, 1, porPosicao[5], porPosicao[8], porPosicao[6], porPosicao[7], 'ultimalissima');
+    }
+  });
+  transacao();
+
+  res.status(201).json({ ok: true, ultimalissimaGerada: geraUltimalissima });
 });
 
 module.exports = router;

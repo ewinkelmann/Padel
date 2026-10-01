@@ -32,7 +32,7 @@ function listarJogadoresComPartidas() {
        FROM jogadores j
        WHERE EXISTS (
          SELECT 1 FROM partidas p
-         WHERE p.games_equipe1 IS NOT NULL
+         WHERE p.games_equipe1 IS NOT NULL AND p.tipo = 'normal'
            AND (p.equipe1_j1 = j.id OR p.equipe1_j2 = j.id OR p.equipe2_j1 = j.id OR p.equipe2_j2 = j.id)
        )
        ORDER BY j.nome COLLATE NOCASE`
@@ -78,11 +78,14 @@ function calcularPerfil(jogadorIdParam) {
     throw erro;
   }
 
+  // Jogos do Hall da Fama (Finalissima/Ultimalissima) ficam de fora do radar -
+  // as duplas sao montadas artificialmente a partir do ranking final da etapa,
+  // entao contar esses jogos distorceria as estatisticas (ataque/defesa/etc.).
   const partidas = db
     .prepare(
       `SELECT etapa_id, rodada, equipe1_j1, equipe1_j2, equipe2_j1, equipe2_j2, games_equipe1, games_equipe2
        FROM partidas
-       WHERE games_equipe1 IS NOT NULL AND games_equipe2 IS NOT NULL
+       WHERE games_equipe1 IS NOT NULL AND games_equipe2 IS NOT NULL AND tipo = 'normal'
          AND (equipe1_j1 = ? OR equipe1_j2 = ? OR equipe2_j1 = ? OR equipe2_j2 = ?)
        ORDER BY etapa_id, rodada`
     )

@@ -65,11 +65,15 @@ function calcularRanking(tipo, periodo) {
       nomes.set(p.jogador_id, p.nome);
     }
 
+    // Jogos do Hall da Fama (Finalissima/Ultimalissima) ficam de fora do ranking -
+    // as duplas sao montadas artificialmente a partir do proprio ranking final,
+    // entao contar esses jogos distorceria as estatisticas.
     const partidas = db
       .prepare(
         `SELECT equipe1_j1, equipe1_j2, equipe2_j1, equipe2_j2, games_equipe1, games_equipe2
          FROM partidas
          WHERE etapa_id IN (${placeholders})
+           AND tipo = 'normal'
            AND games_equipe1 IS NOT NULL AND games_equipe2 IS NOT NULL`
       )
       .all(...etapaIds);
@@ -121,6 +125,20 @@ function calcularRanking(tipo, periodo) {
     gamesPerdidos: s.gamesPerdidos,
     saldoGames: s.gamesGanhos - s.gamesPerdidos,
   }));
+
+  // O ranking geral (semestral/anual) so mostra quem esta inscrito na secao
+  // "Inscritos" e marcado como mensalista - os jogos de todo mundo continuam
+  // entrando no calculo (saldo, confronto direto etc.), so a listagem final e
+  // filtrada. O ranking por etapa (calcularRankingEtapa, abaixo) nao passa por
+  // esse filtro - e um retrato historico fixo de uma etapa especifica.
+  if (linhas.length > 0) {
+    const placeholdersJog = linhas.map(() => '?').join(',');
+    const flags = db
+      .prepare(`SELECT id, inscrito, mensalista FROM jogadores WHERE id IN (${placeholdersJog})`)
+      .all(...linhas.map((l) => l.jogadorId));
+    const qualificados = new Set(flags.filter((f) => f.inscrito && f.mensalista).map((f) => f.id));
+    linhas = linhas.filter((l) => qualificados.has(l.jogadorId));
+  }
 
   linhas = ordenarComCriteriosDeDesempate(linhas, confrontos);
 
@@ -240,10 +258,14 @@ function calcularRankingEtapa(etapaId) {
     nomes.set(p.jogador_id, p.nome);
   }
 
+  // So partidas normais contam para o ranking da etapa - os jogos do Hall da
+  // Fama (Finalissima/Ultimalissima) sao montados a partir deste mesmo ranking,
+  // entao precisam ficar de fora para nao criar circularidade.
   const partidas = db
     .prepare(
       `SELECT equipe1_j1, equipe1_j2, equipe2_j1, equipe2_j2, games_equipe1, games_equipe2
-       FROM partidas WHERE etapa_id = ? AND games_equipe1 IS NOT NULL AND games_equipe2 IS NOT NULL`
+       FROM partidas WHERE etapa_id = ? AND tipo = 'normal'
+         AND games_equipe1 IS NOT NULL AND games_equipe2 IS NOT NULL`
     )
     .all(etapaId);
 
