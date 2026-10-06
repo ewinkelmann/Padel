@@ -4,6 +4,9 @@
 // Cada jogador joga ao lado de (parceiro) e contra (adversario) todos os demais
 // pelo menos uma vez, usando o numero minimo de rodadas possivel com as quadras
 // disponiveis (1 quadra para ate 7 jogadores, 2 quadras simultaneas para 8).
+// O modelo de 8 jogadores foi escolhido de forma que, combinado com a troca de
+// quadras por rodada feita em sorteio.js, cada jogador alterne entre as quadras
+// 01 e 02 (3 ou 4 jogos em cada uma, nas 7 rodadas).
 
 const MODELOS = {
   "4": [
@@ -502,22 +505,22 @@ const MODELOS = {
       "matches": [
         [
           [
-            4,
-            1
+            7,
+            0
           ],
           [
-            5,
-            2
+            1,
+            6
           ]
         ],
         [
           [
-            0,
-            3
+            2,
+            5
           ],
           [
-            7,
-            6
+            3,
+            4
           ]
         ]
       ],
@@ -525,6 +528,16 @@ const MODELOS = {
     },
     {
       "matches": [
+        [
+          [
+            7,
+            1
+          ],
+          [
+            2,
+            0
+          ]
+        ],
         [
           [
             3,
@@ -534,16 +547,6 @@ const MODELOS = {
             4,
             5
           ]
-        ],
-        [
-          [
-            0,
-            7
-          ],
-          [
-            2,
-            1
-          ]
         ]
       ],
       "resting": []
@@ -552,18 +555,18 @@ const MODELOS = {
       "matches": [
         [
           [
-            3,
-            4
+            7,
+            2
           ],
           [
-            1,
-            0
+            3,
+            1
           ]
         ],
         [
           [
-            2,
-            7
+            4,
+            0
           ],
           [
             5,
@@ -577,22 +580,22 @@ const MODELOS = {
       "matches": [
         [
           [
-            3,
+            7,
+            3
+          ],
+          [
+            5,
             1
+          ]
+        ],
+        [
+          [
+            4,
+            2
           ],
           [
             6,
-            2
-          ]
-        ],
-        [
-          [
-            5,
-            7
-          ],
-          [
-            0,
-            4
+            0
           ]
         ]
       ],
@@ -602,47 +605,22 @@ const MODELOS = {
       "matches": [
         [
           [
-            0,
-            6
+            7,
+            4
           ],
           [
-            5,
+            0,
             1
           ]
         ],
-        [
-          [
-            3,
-            7
-          ],
-          [
-            2,
-            4
-          ]
-        ]
-      ],
-      "resting": []
-    },
-    {
-      "matches": [
         [
           [
             5,
             3
           ],
           [
-            0,
+            6,
             2
-          ]
-        ],
-        [
-          [
-            1,
-            6
-          ],
-          [
-            7,
-            4
           ]
         ]
       ],
@@ -652,22 +630,47 @@ const MODELOS = {
       "matches": [
         [
           [
-            5,
-            0
+            7,
+            5
           ],
           [
             1,
-            7
+            2
           ]
         ],
         [
           [
-            3,
-            2
+            6,
+            4
           ],
           [
-            4,
+            0,
+            3
+          ]
+        ]
+      ],
+      "resting": []
+    },
+    {
+      "matches": [
+        [
+          [
+            7,
             6
+          ],
+          [
+            1,
+            4
+          ]
+        ],
+        [
+          [
+            0,
+            5
+          ],
+          [
+            2,
+            3
           ]
         ]
       ],

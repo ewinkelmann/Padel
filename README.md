@@ -67,6 +67,9 @@ de resultados e ranking semestral/anual com criterios de desempate.
   - ate 7 jogadores: 1 quadra (3, 5, 8 ou 11 rodadas, dependendo do numero de
     inscritos - 4, 5, 6 ou 7 jogadores respectivamente);
   - 8 jogadores: 2 quadras simultaneas, 7 rodadas (14 partidas).
+    Nesse caso, o sorteio tambem **alterna as quadras** de cada jogador: nas 7
+    rodadas, cada um joga 3 ou 4 jogos na quadra 01 e os demais na quadra 02, e
+    evita ao maximo ficar muitas rodadas seguidas na mesma quadra.
   Os modelos de rodada foram gerados e verificados por simulacao (veja
   `server/lib/schedules.js`); a cada sorteio, os jogadores reais sao
   embaralhados aleatoriamente dentro desse modelo.
