@@ -1088,6 +1088,7 @@
             Mensalista
           </label>
         </td>
+        <td><button class="link-btn small" data-excluir-inscrito="${j.id}" data-nome="${esc(j.nome)}" style="color:var(--danger);">Excluir</button></td>
       </tr>
     `).join('');
 
@@ -1113,8 +1114,8 @@
         <div class="card">
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Nome</th><th>Jogos</th><th>Inscrito</th><th>Mensalista</th></tr></thead>
-              <tbody>${linhas || '<tr><td colspan="4" class="muted">Nenhum atleta cadastrado ainda.</td></tr>'}</tbody>
+              <thead><tr><th>Nome</th><th>Jogos</th><th>Inscrito</th><th>Mensalista</th><th></th></tr></thead>
+              <tbody>${linhas || '<tr><td colspan="5" class="muted">Nenhum atleta cadastrado ainda.</td></tr>'}</tbody>
             </table>
           </div>
         </div>
@@ -1137,6 +1138,18 @@
         viewEl.querySelector('#erro-novo-inscrito').innerHTML = `<div class="form-error">${esc(e.message)}</div>`;
         btn.disabled = false;
       }
+    });
+
+    viewEl.querySelectorAll('[data-excluir-inscrito]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const nome = btn.getAttribute('data-nome');
+        if (!confirm(`Excluir "${nome}" da lista de inscritos? Esta ação não pode ser desfeita.`)) return;
+        try {
+          await api(`/inscritos/${btn.getAttribute('data-excluir-inscrito')}`, { method: 'DELETE' });
+          mostrarToast('Atleta excluído.');
+          viewInscritos();
+        } catch (e) { mostrarToast(e.message, 'erro'); }
+      });
     });
 
     viewEl.querySelectorAll('[data-inscrito]').forEach((chk) => {

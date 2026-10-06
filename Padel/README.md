@@ -54,6 +54,9 @@ de resultados e ranking semestral/anual com criterios de desempate.
   marcacoes de qualquer jogador a qualquer momento - desmarcar "Inscrito" nao
   apaga o historico do jogador, so tira ele da lista de inclusao em novas
   etapas.
+  Tambem e possivel **excluir** um atleta da lista (botao "Excluir"), mas so
+  se ele nunca disputou partida e nao estiver vinculado a uma conta de usuario;
+  nos outros casos, use a marcacao "Inscrito" para tira-lo das novas etapas.
 - **Etapas do torneio.** O admin ou organizador cria uma etapa (nome + data).
   Enquanto as inscricoes estiverem abertas, qualquer jogador logado pode
   adicionar participantes (de 4 a 8 por etapa) escolhendo o nome numa lista
