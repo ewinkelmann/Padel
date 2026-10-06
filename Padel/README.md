@@ -76,8 +76,9 @@ de resultados e ranking semestral/anual com criterios de desempate.
   Os modelos de rodada foram gerados e verificados por simulacao (veja
   `server/lib/schedules.js`); a cada sorteio, os jogadores reais sao
   embaralhados aleatoriamente dentro desse modelo.
-- **Resultados.** Cada partida termina em 3x0, 3x1 ou 3x2 (a dupla que
-  chega a 3 games primeiro vence) - o site so aceita esses placares.
+- **Resultados.** Em cada partida (e tambem na Finalissima e na Ultimalissima),
+  cada dupla pode fazer de 0 a 7 games, e nao pode haver empate. O site
+  rejeita qualquer outro placar.
 - **Etapas retroativas (partidas ja disputadas antes do site existir).**
   Na pagina de uma etapa, o administrador tem o link **"+ Adicionar partida
   retroativa"**, que abre um formulario para informar as duas duplas e o
@@ -110,8 +111,13 @@ de resultados e ranking semestral/anual com criterios de desempate.
   desempate do ranking semestral/anual), com todos os participantes daquela
   etapa (sem o filtro de mensalista - e um retrato fixo de como ficou cada
   etapa especifica, sem somar com as demais).
-- **Hall da Fama.** Depois que todas as partidas normais de uma etapa ja
-  tiverem placar lancado, administrador ou organizador podem clicar em
+- **Hall da Fama.** Em etapas com **8 jogadores**, a Finalissima e a
+  Ultimalissima sao **geradas automaticamente** assim que o placar de todas as
+  partidas normais estiver salvo (se um resultado for corrigido antes de
+  qualquer um desses dois jogos ter placar, as duplas sao refeitas com o
+  ranking atualizado; depois que algum ja tem placar, ficam como estao). Nas
+  demais etapas (4 a 7 jogadores), depois que todas as partidas normais tiverem
+  placar lancado, administrador ou organizador podem clicar em
   **"🏆 Gerar jogos do Hall da Fama"**, na propria pagina da etapa. O sistema
   monta, com base no ranking daquela etapa: a **Finalissima**, entre o 1º e o
   4º colocados contra o 2º e o 3º; e, quando a etapa tiver 8 jogadores,

@@ -110,9 +110,15 @@ function calcularPerfil(jogadorIdParam) {
 
   for (const p of partidas) {
     const naEquipe1 = p.equipe1_j1 === jogadorId || p.equipe1_j2 === jogadorId;
-    const favor = naEquipe1 ? p.games_equipe1 : p.games_equipe2;
-    const contra = naEquipe1 ? p.games_equipe2 : p.games_equipe1;
-    const venceu = favor > contra;
+    // Os placares agora vao de 0 a 7 games. Para o radar continuar na mesma escala
+    // (0 a 3 games por partida), cada partida e normalizada pelo placar de quem
+    // venceu: um 7x5 vale como um 3x2,14 - e partidas ate 3 ficam como sempre foram.
+    const fator = 3 / Math.max(p.games_equipe1, p.games_equipe2);
+    const favorBruto = naEquipe1 ? p.games_equipe1 : p.games_equipe2;
+    const contraBruto = naEquipe1 ? p.games_equipe2 : p.games_equipe1;
+    const favor = favorBruto * fator;
+    const contra = contraBruto * fator;
+    const venceu = favorBruto > contraBruto;
     const parceiroId = naEquipe1
       ? (p.equipe1_j1 === jogadorId ? p.equipe1_j2 : p.equipe1_j1)
       : (p.equipe2_j1 === jogadorId ? p.equipe2_j2 : p.equipe2_j1);

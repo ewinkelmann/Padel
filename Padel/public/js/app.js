@@ -631,12 +631,12 @@
         <div class="row">
           <div class="field" style="margin-bottom:0;">
             <label>Games dupla 1</label>
-            <input type="number" name="games1" min="0" max="3" required style="width:80px;" />
+            <input type="number" name="games1" min="0" max="7" required style="width:80px;" />
           </div>
           <span class="vs" style="align-self:flex-end; padding-bottom:11px;">×</span>
           <div class="field" style="margin-bottom:0;">
             <label>Games dupla 2</label>
-            <input type="number" name="games2" min="0" max="3" required style="width:80px;" />
+            <input type="number" name="games2" min="0" max="7" required style="width:80px;" />
           </div>
         </div>
         <button class="btn btn-accent" type="submit" style="align-self:flex-start;">Adicionar partida</button>
@@ -742,9 +742,9 @@
       ${podeEditar ? `<button class="link-btn small" data-editar-resultado="${p.id}" style="margin-top:8px;">Corrigir resultado</button>` : ''}${btnExcluir}
       ${avisoTravada}
       <form class="score-form" data-form-resultado="${p.id}" hidden>
-        <input type="number" min="0" max="3" name="games1" required value="${p.games_equipe1}" />
+        <input type="number" min="0" max="7" name="games1" required value="${p.games_equipe1}" />
         <span class="vs">×</span>
-        <input type="number" min="0" max="3" name="games2" required value="${p.games_equipe2}" />
+        <input type="number" min="0" max="7" name="games2" required value="${p.games_equipe2}" />
         <button class="btn btn-sm" type="submit">Salvar</button>
       </form>
     ` : `
@@ -755,9 +755,9 @@
       </div>
       ${podeEditar ? `
         <form class="score-form" data-form-resultado="${p.id}">
-          <input type="number" min="0" max="3" name="games1" placeholder="0" required />
+          <input type="number" min="0" max="7" name="games1" placeholder="0" required />
           <span class="vs">×</span>
-          <input type="number" min="0" max="3" name="games2" placeholder="0" required />
+          <input type="number" min="0" max="7" name="games2" placeholder="0" required />
           <button class="btn btn-sm" type="submit">Salvar placar</button>
         </form>
       ` : avisoTravada}
@@ -1598,7 +1598,7 @@
         <div class="card">
           <div class="card-title-row"><h2>Como calculamos cada força</h2></div>
           <p class="help-box">Todos os indicadores vão de 0 a 100 e são calculados de forma consolidada, somando os jogos de todas as etapas já disputadas (não é um valor por período).</p>
-          <p class="help-box"><strong>Ataque</strong> - média de games conquistados pela dupla do jogador por partida (de 0 a 3 por jogo).</p>
+          <p class="help-box"><strong>Ataque</strong> - média de games conquistados pela dupla do jogador por partida (normalizado pelo placar de cada jogo).</p>
           <p class="help-box"><strong>Defesa</strong> - o inverso: quanto menos games a dupla cede ao adversário por partida, maior a nota.</p>
           <p class="help-box"><strong>Consistência</strong> - o quanto o saldo de games varia de partida para partida. Pouca oscilação entre goleadas e derrotas apertadas resulta em nota mais alta.</p>
           <p class="help-box"><strong>Físico</strong> - compara o desempenho do jogador na primeira metade das rodadas de uma etapa com a segunda metade. Quem mantém (ou melhora) o nível de jogo nas rodadas finais - quando o desgaste físico mais pesa - recebe nota mais alta.</p>

@@ -2,6 +2,7 @@ const express = require('express');
 const db = require('../db');
 const { autenticar, exigirAdmin } = require('../lib/auth');
 const { validarPlacar } = require('../lib/placares');
+const { sincronizarAutomatico } = require('../lib/hallDaFama');
 
 const router = express.Router();
 
@@ -49,6 +50,8 @@ router.put('/:id/resultado', autenticar, (req, res) => {
   ).run(Number(games1), Number(games2), req.usuario.id, partida.id);
 
   atualizarStatusEtapa(partida.etapa_id);
+  // etapa com 8 jogadores: gera Finalissima/Ultimalissima quando tudo estiver salvo
+  if (partida.tipo === 'normal') sincronizarAutomatico(partida.etapa_id);
 
   res.json({ ok: true });
 });
@@ -72,6 +75,7 @@ router.delete('/:id', autenticar, exigirAdmin, (req, res) => {
     const novoStatus = total > 0 && total === comResultado ? 'finalizada' : 'sorteada';
     db.prepare('UPDATE etapas SET status = ? WHERE id = ?').run(novoStatus, partida.etapa_id);
   }
+  if (partida.tipo === 'normal') sincronizarAutomatico(partida.etapa_id);
 
   res.json({ ok: true });
 });

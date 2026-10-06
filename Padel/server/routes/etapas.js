@@ -3,7 +3,7 @@ const db = require('../db');
 const { autenticar, exigirAdmin, permitirPapeis } = require('../lib/auth');
 const { gerarSorteio } = require('../lib/sorteio');
 const { validarPlacar } = require('../lib/placares');
-const { calcularRankingEtapa } = require('../lib/ranking');
+const { situacaoNormais, criarJogos, sincronizarAutomatico } = require('../lib/hallDaFama');
 
 const router = express.Router();
 
@@ -298,6 +298,7 @@ router.post('/:id/partidas', autenticar, exigirAdmin, (req, res) => {
   });
 
   const partidaId = transacao();
+  sincronizarAutomatico(etapa.id);
   res.status(201).json({ ok: true, partidaId });
 });
 
@@ -337,41 +338,18 @@ router.post('/:id/hall-da-fama', autenticar, permitirPapeis('admin', 'organizado
     return res.status(409).json({ erro: 'Os jogos do Hall da Fama desta etapa ja foram gerados.' });
   }
 
-  const totalNormal = db
-    .prepare("SELECT COUNT(*) AS n FROM partidas WHERE etapa_id = ? AND tipo = 'normal'")
-    .get(etapa.id).n;
-  const comResultado = db
-    .prepare("SELECT COUNT(*) AS n FROM partidas WHERE etapa_id = ? AND tipo = 'normal' AND games_equipe1 IS NOT NULL")
-    .get(etapa.id).n;
-  if (totalNormal === 0 || totalNormal !== comResultado) {
+  const { completas } = situacaoNormais(etapa.id);
+  if (!completas) {
     return res.status(409).json({
       erro: 'Lance o resultado de todas as partidas normais da etapa antes de gerar os jogos do Hall da Fama.',
     });
   }
 
-  const { ranking } = calcularRankingEtapa(etapa.id);
-  if (ranking.length < 4) {
+  const resultado = criarJogos(etapa.id);
+  if (!resultado) {
     return res.status(409).json({ erro: 'E preciso pelo menos 4 jogadores com partidas disputadas para gerar a Finalissima.' });
   }
-
-  const porPosicao = {};
-  ranking.forEach((l) => { porPosicao[l.posicao] = l.jogadorId; });
-
-  const inserir = db.prepare(
-    `INSERT INTO partidas (etapa_id, rodada, quadra, equipe1_j1, equipe1_j2, equipe2_j1, equipe2_j2, tipo)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-  );
-
-  const geraUltimalissima = ranking.length >= 8;
-  const transacao = db.transaction(() => {
-    inserir.run(etapa.id, 0, 1, porPosicao[1], porPosicao[4], porPosicao[2], porPosicao[3], 'finalissima');
-    if (geraUltimalissima) {
-      inserir.run(etapa.id, 0, 1, porPosicao[5], porPosicao[8], porPosicao[6], porPosicao[7], 'ultimalissima');
-    }
-  });
-  transacao();
-
-  res.status(201).json({ ok: true, ultimalissimaGerada: geraUltimalissima });
+  res.status(201).json({ ok: true, ultimalissimaGerada: resultado.ultimalissimaGerada });
 });
 
 module.exports = router;
