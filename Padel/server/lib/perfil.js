@@ -32,7 +32,7 @@ function listarJogadoresComPartidas() {
        FROM jogadores j
        WHERE EXISTS (
          SELECT 1 FROM partidas p
-         WHERE p.games_equipe1 IS NOT NULL AND p.tipo = 'normal'
+         WHERE p.games_equipe1 IS NOT NULL
            AND (p.equipe1_j1 = j.id OR p.equipe1_j2 = j.id OR p.equipe2_j1 = j.id OR p.equipe2_j2 = j.id)
        )
        ORDER BY j.nome COLLATE NOCASE`
@@ -78,14 +78,15 @@ function calcularPerfil(jogadorIdParam) {
     throw erro;
   }
 
-  // Jogos do Hall da Fama (Finalissima/Ultimalissima) ficam de fora do radar -
-  // as duplas sao montadas artificialmente a partir do ranking final da etapa,
-  // entao contar esses jogos distorceria as estatisticas (ataque/defesa/etc.).
+  // O radar considera TODOS os jogos do jogador, inclusive Finalissima e
+  // Ultimalissima (so a secao de Perfis faz isso - ranking geral e ranking por
+  // etapa continuam usando apenas as partidas regulares). Cada jogo entra de forma
+  // proporcional ao seu placar (veja a normalizacao mais abaixo).
   const partidas = db
     .prepare(
-      `SELECT etapa_id, rodada, equipe1_j1, equipe1_j2, equipe2_j1, equipe2_j2, games_equipe1, games_equipe2
+      `SELECT etapa_id, rodada, tipo, equipe1_j1, equipe1_j2, equipe2_j1, equipe2_j2, games_equipe1, games_equipe2
        FROM partidas
-       WHERE games_equipe1 IS NOT NULL AND games_equipe2 IS NOT NULL AND tipo = 'normal'
+       WHERE games_equipe1 IS NOT NULL AND games_equipe2 IS NOT NULL
          AND (equipe1_j1 = ? OR equipe1_j2 = ? OR equipe2_j1 = ? OR equipe2_j2 = ?)
        ORDER BY etapa_id, rodada`
     )
@@ -128,7 +129,10 @@ function calcularPerfil(jogadorIdParam) {
     saldos.push(favor - contra);
 
     if (!porEtapa.has(p.etapa_id)) porEtapa.set(p.etapa_id, []);
-    porEtapa.get(p.etapa_id).push({ rodada: p.rodada, saldo: favor - contra });
+    // Finalissima/Ultimalissima sao jogadas depois de todas as rodadas normais:
+    // para o atributo Fisico, contam como as ultimas rodadas da etapa.
+    const rodadaEfetiva = p.tipo === 'normal' ? p.rodada : 1000 + (p.tipo === 'finalissima' ? 1 : 0);
+    porEtapa.get(p.etapa_id).push({ rodada: rodadaEfetiva, saldo: favor - contra });
 
     if (!porParceiro.has(parceiroId)) porParceiro.set(parceiroId, { vitorias: 0, jogos: 0 });
     const reg = porParceiro.get(parceiroId);

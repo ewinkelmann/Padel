@@ -126,9 +126,10 @@ de resultados e ranking semestral/anual com criterios de desempate.
   lancar/corrigir placar das partidas normais) e tambem ficam reunidas numa
   secao **"Hall da Fama"** propria, visivel para qualquer jogador logado, com
   o historico de todas as etapas. Esses jogos nao contam para o ranking geral
-  nem para os perfis (radar) - ja que as duplas sao montadas artificialmente
-  a partir do proprio resultado final, contar isso distorceria as
-  estatisticas.
+  nem para o ranking por etapa. Ja a secao **Perfis** (radar) considera todos os
+  jogos do atleta, inclusive Finalissima e Ultimalissima - cada jogo entra de
+  forma proporcional ao seu placar, e para o atributo Fisico eles contam como
+  as ultimas rodadas da etapa.
 - **Finalizar etapa (travar resultados).** Depois que todos os resultados de
   uma etapa ja foram lancados, o administrador pode clicar em **"🔒 Finalizar
   etapa"**: a partir dai, jogadores e organizadores deixam de conseguir
