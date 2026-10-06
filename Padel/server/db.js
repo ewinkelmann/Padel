@@ -95,6 +95,26 @@ function migrar() {
     // 1 = finalizada pelo admin - so o admin pode ajustar resultados a partir daqui
     db.exec(`ALTER TABLE etapas ADD COLUMN travada INTEGER NOT NULL DEFAULT 0`);
   }
+  if (!coluna_existe('jogadores', 'inscrito')) {
+    // 1 = apto a jogar etapas (aparece na lista suspensa de inscricao de uma etapa).
+    // Comeca em 1 para todo mundo que ja existia no banco, para ninguem sumir da
+    // lista de uma hora para outra - a partir de agora, quem gerencia isso e a
+    // secao "Inscritos" (admin/organizador).
+    db.exec(`ALTER TABLE jogadores ADD COLUMN inscrito INTEGER NOT NULL DEFAULT 1`);
+  }
+  if (!coluna_existe('jogadores', 'mensalista')) {
+    // 1 = conta para o ranking geral (semestral/anual). Comeca em 0 para todo
+    // mundo - precisa ser marcado manualmente na secao "Inscritos", ja que o
+    // sistema nao tem como saber quem efetivamente paga mensalidade.
+    db.exec(`ALTER TABLE jogadores ADD COLUMN mensalista INTEGER NOT NULL DEFAULT 0`);
+  }
+  if (!coluna_existe('partidas', 'tipo')) {
+    // 'normal' = partida de rodada normal (sorteio ou retroativa).
+    // 'finalissima' / 'ultimalissima' = jogos do Hall da Fama, gerados a partir
+    // do ranking final da etapa - nao contam para o ranking geral nem para os
+    // perfis (radar), so para o registro no Hall da Fama.
+    db.exec(`ALTER TABLE partidas ADD COLUMN tipo TEXT NOT NULL DEFAULT 'normal'`);
+  }
 }
 
 migrar();

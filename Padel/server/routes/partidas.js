@@ -5,10 +5,13 @@ const { validarPlacar } = require('../lib/placares');
 
 const router = express.Router();
 
+// So partidas normais contam para o status automatico da etapa - os jogos do
+// Hall da Fama (gerados so depois que a etapa ja esta completa) nao podem
+// fazer o status "regredir" enquanto aguardam placar.
 function atualizarStatusEtapa(etapaId) {
-  const total = db.prepare('SELECT COUNT(*) AS n FROM partidas WHERE etapa_id = ?').get(etapaId).n;
+  const total = db.prepare("SELECT COUNT(*) AS n FROM partidas WHERE etapa_id = ? AND tipo = 'normal'").get(etapaId).n;
   const comResultado = db
-    .prepare('SELECT COUNT(*) AS n FROM partidas WHERE etapa_id = ? AND games_equipe1 IS NOT NULL')
+    .prepare("SELECT COUNT(*) AS n FROM partidas WHERE etapa_id = ? AND tipo = 'normal' AND games_equipe1 IS NOT NULL")
     .get(etapaId).n;
   const etapa = db.prepare('SELECT status FROM etapas WHERE id = ?').get(etapaId);
   if (!etapa || etapa.status === 'inscricoes') return;
@@ -59,9 +62,10 @@ router.delete('/:id', autenticar, exigirAdmin, (req, res) => {
   db.prepare('DELETE FROM partidas WHERE id = ?').run(partida.id);
 
   // recalcula o status da etapa (pode voltar a "sorteada" se deixou de estar completa)
-  const total = db.prepare('SELECT COUNT(*) AS n FROM partidas WHERE etapa_id = ?').get(partida.etapa_id).n;
+  // - so considerando partidas normais (jogos do Hall da Fama ficam de fora).
+  const total = db.prepare("SELECT COUNT(*) AS n FROM partidas WHERE etapa_id = ? AND tipo = 'normal'").get(partida.etapa_id).n;
   const comResultado = db
-    .prepare('SELECT COUNT(*) AS n FROM partidas WHERE etapa_id = ? AND games_equipe1 IS NOT NULL')
+    .prepare("SELECT COUNT(*) AS n FROM partidas WHERE etapa_id = ? AND tipo = 'normal' AND games_equipe1 IS NOT NULL")
     .get(partida.etapa_id).n;
   const etapa = db.prepare('SELECT status FROM etapas WHERE id = ?').get(partida.etapa_id);
   if (etapa && etapa.status !== 'inscricoes') {

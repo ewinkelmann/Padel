@@ -7,7 +7,7 @@ const router = express.Router();
 router.get('/', autenticar, (req, res) => {
   const jogadores = db
     .prepare(
-      `SELECT j.id, j.nome, j.usuario_id,
+      `SELECT j.id, j.nome, j.usuario_id, j.inscrito, j.mensalista,
               (SELECT COUNT(*) FROM partidas p
                  WHERE p.equipe1_j1 = j.id OR p.equipe1_j2 = j.id
                     OR p.equipe2_j1 = j.id OR p.equipe2_j2 = j.id) AS partidas_disputadas

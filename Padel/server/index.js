@@ -43,6 +43,8 @@ app.use('/api/partidas', require('./routes/partidas'));
 app.use('/api/ranking', require('./routes/ranking'));
 app.use('/api/usuarios', require('./routes/usuarios'));
 app.use('/api/perfis', require('./routes/perfis'));
+app.use('/api/inscritos', require('./routes/inscritos'));
+app.use('/api/hall-da-fama', require('./routes/hall-da-fama'));
 
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
