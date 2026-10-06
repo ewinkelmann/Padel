@@ -63,6 +63,13 @@ de resultados e ranking semestral/anual com criterios de desempate.
   suspensa, que so oferece quem estiver marcado como "Inscrito" na secao
   Inscritos (se o nome nao aparecer, e preciso cadastra-lo la primeiro). O
   admin ou organizador entao realiza o sorteio.
+- **Substituir jogador (imprevistos de ultima hora).** Em uma etapa ja
+  sorteada que ainda nao tem nenhum resultado salvo, administrador e
+  organizador veem o painel **"🔄 Substituir jogador"**: escolhem quem sai e
+  quem entra (so aparecem atletas marcados como Inscrito que ainda nao estao
+  na etapa). O substituto assume exatamente o lugar de quem saiu em todas as
+  partidas - mesmas duplas, adversarios e quadras, sem refazer o sorteio. Depois
+  que o primeiro resultado for salvo, a substituicao deixa de ser possivel.
 - **Sorteio automatico.** Garante matematicamente que, na etapa, cada jogador
   joga pelo menos uma vez ao lado de (como parceiro) e pelo menos uma vez
   contra (como adversario) todos os outros participantes, usando o menor

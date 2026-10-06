@@ -540,6 +540,29 @@
       <p class="form-hint">${participantes.length}/8 jogadores inscritos. Mínimo de 4 para sortear. Não achou o nome? ${podeOrganizar ? 'Cadastre o atleta na seção <a class="link-btn" href="#/inscritos">Inscritos</a> primeiro.' : 'Peça para um organizador cadastrá-lo na seção Inscritos.'}</p>
     ` : '';
 
+    // Substituicao de ultima hora: so apos o sorteio e enquanto nenhum resultado foi salvo
+    const nenhumResultado = partidas.every((p) => p.games_equipe1 === null);
+    const podeSubstituir = podeOrganizar && etapa.status === 'sorteada' && partidas.length > 0 && nenhumResultado;
+    const painelSubstituir = podeSubstituir ? `
+      <div class="divider"></div>
+      <h3 style="font-size:15px;">🔄 Substituir jogador</h3>
+      <p class="form-hint" style="margin-top:0;">Alguém não pode comparecer? O substituto assume o lugar exatamente no sorteio já feito (mesmas duplas, adversários e quadras). Só é possível enquanto nenhum resultado foi salvo.</p>
+      <div class="grid-cols">
+        <div class="field" style="margin-bottom:0;">
+          <label>Quem sai</label>
+          <select id="select-substituir-sai">
+            <option value="">Selecionar…</option>
+            ${participantes.map((p) => `<option value="${p.id}">${esc(p.nome)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <label>Quem entra</label>
+          <select id="select-substituir-entra"><option value="">Selecionar…</option></select>
+        </div>
+      </div>
+      <button class="btn btn-sm" id="btn-substituir" style="margin-top:10px;">Substituir</button>
+    ` : '';
+
     const painelSorteio = podeOrganizar && podeInscrever ? `
       <button class="btn btn-accent" id="btn-sortear" ${participantes.length < 4 ? 'disabled' : ''}>
         🎾 Realizar sorteio
@@ -676,6 +699,7 @@
           <div class="card-title-row"><h2>Jogadores inscritos</h2></div>
           <div class="tag-select" style="gap:8px;">${chipsParticipantes}</div>
           ${painelInscricao}
+          ${painelSubstituir}
           ${painelSorteio ? `<div style="margin-top:14px;">${painelSorteio}</div>` : ''}
         </div>
 
@@ -698,6 +722,14 @@
     api('/jogadores').then(({ jogadores }) => {
       const dl = viewEl.querySelector('#lista-jogadores');
       if (dl) dl.innerHTML = jogadores.map((j) => `<option value="${esc(j.nome)}"></option>`).join('');
+
+      const selEntra = viewEl.querySelector('#select-substituir-entra');
+      if (selEntra) {
+        const ids = new Set(participantes.map((p) => p.id));
+        selEntra.innerHTML = '<option value="">Selecionar…</option>' +
+          jogadores.filter((j) => j.inscrito && !ids.has(j.id))
+            .map((j) => `<option value="${j.id}">${esc(j.nome)}</option>`).join('');
+      }
 
       const select = viewEl.querySelector('#select-jogador-existente');
       if (select) {
@@ -783,6 +815,30 @@
     const btnImprimir = viewEl.querySelector('#btn-imprimir-tabela');
     if (btnImprimir) {
       btnImprimir.addEventListener('click', () => imprimirTabelaEtapa(etapa, partidas));
+    }
+
+    const btnSubstituir = viewEl.querySelector('#btn-substituir');
+    if (btnSubstituir) {
+      btnSubstituir.addEventListener('click', async () => {
+        const sai = viewEl.querySelector('#select-substituir-sai');
+        const entra = viewEl.querySelector('#select-substituir-entra');
+        if (!sai.value || !entra.value) { mostrarToast('Escolha quem sai e quem entra.', 'erro'); return; }
+        const nomeSai = sai.options[sai.selectedIndex].text;
+        const nomeEntra = entra.options[entra.selectedIndex].text;
+        if (!confirm(`Substituir ${nomeSai} por ${nomeEntra}? ${nomeEntra} assume todas as partidas de ${nomeSai} neste sorteio.`)) return;
+        btnSubstituir.disabled = true;
+        try {
+          await api(`/etapas/${etapaId}/substituir`, {
+            method: 'POST',
+            body: JSON.stringify({ saidaId: Number(sai.value), entradaId: Number(entra.value) }),
+          });
+          mostrarToast('Jogador substituído.');
+          viewEtapaDetalhe(etapaId);
+        } catch (e) {
+          mostrarToast(e.message, 'erro');
+          btnSubstituir.disabled = false;
+        }
+      });
     }
 
     const btnGerarHallFama = viewEl.querySelector('#btn-gerar-hall-fama');

@@ -352,4 +352,59 @@ router.post('/:id/hall-da-fama', autenticar, permitirPapeis('admin', 'organizado
   res.status(201).json({ ok: true, ultimalissimaGerada: resultado.ultimalissimaGerada });
 });
 
+// Substitui um jogador por outro numa etapa ja sorteada, desde que nenhum
+// resultado tenha sido lancado ainda (caso de quem nao pode comparecer de ultima
+// hora). O substituto assume exatamente o lugar de quem saiu em todas as partidas
+// do sorteio - duplas, adversarios e quadras continuam os mesmos. Liberado para
+// admin e organizador. O substituto precisa estar marcado como "Inscrito".
+router.post('/:id/substituir', autenticar, permitirPapeis('admin', 'organizador'), (req, res) => {
+  const etapa = buscarEtapaOu404(req.params.id, res);
+  if (!etapa) return;
+
+  const saidaId = Number((req.body || {}).saidaId);
+  const entradaId = Number((req.body || {}).entradaId);
+  if (!Number.isInteger(saidaId) || !Number.isInteger(entradaId)) {
+    return res.status(400).json({ erro: 'Informe quem sai e quem entra na etapa.' });
+  }
+  if (saidaId === entradaId) {
+    return res.status(400).json({ erro: 'Escolha um jogador diferente para substituir.' });
+  }
+  if (etapa.status === 'inscricoes') {
+    return res.status(409).json({
+      erro: 'Esta etapa ainda nao foi sorteada. Enquanto as inscricoes estao abertas, o administrador pode remover o jogador e incluir outro.',
+    });
+  }
+  const comResultado = db
+    .prepare('SELECT COUNT(*) AS n FROM partidas WHERE etapa_id = ? AND games_equipe1 IS NOT NULL')
+    .get(etapa.id).n;
+  if (comResultado > 0) {
+    return res.status(409).json({
+      erro: 'Esta etapa ja tem resultados salvos, entao nao e mais possivel substituir jogadores.',
+    });
+  }
+
+  const saiu = db
+    .prepare('SELECT 1 FROM etapa_participantes WHERE etapa_id = ? AND jogador_id = ?')
+    .get(etapa.id, saidaId);
+  if (!saiu) return res.status(404).json({ erro: 'O jogador que sai nao esta nesta etapa.' });
+
+  const entrada = db.prepare('SELECT id, inscrito FROM jogadores WHERE id = ?').get(entradaId);
+  if (!entrada || !entrada.inscrito) {
+    return res.status(400).json({ erro: 'O substituto precisa estar cadastrado e marcado como Inscrito na secao Inscritos.' });
+  }
+  const jaNaEtapa = db
+    .prepare('SELECT 1 FROM etapa_participantes WHERE etapa_id = ? AND jogador_id = ?')
+    .get(etapa.id, entradaId);
+  if (jaNaEtapa) return res.status(409).json({ erro: 'O substituto ja esta nesta etapa.' });
+
+  db.transaction(() => {
+    db.prepare('UPDATE etapa_participantes SET jogador_id = ?, adicionado_por = ? WHERE etapa_id = ? AND jogador_id = ?')
+      .run(entradaId, req.usuario.id, etapa.id, saidaId);
+    for (const col of ['equipe1_j1', 'equipe1_j2', 'equipe2_j1', 'equipe2_j2']) {
+      db.prepare(`UPDATE partidas SET ${col} = ? WHERE etapa_id = ? AND ${col} = ?`).run(entradaId, etapa.id, saidaId);
+    }
+  })();
+  res.json({ ok: true });
+});
+
 module.exports = router;
