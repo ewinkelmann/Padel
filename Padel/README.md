@@ -74,7 +74,7 @@ de resultados e ranking semestral/anual com criterios de desempate.
   joga pelo menos uma vez ao lado de (como parceiro) e pelo menos uma vez
   contra (como adversario) todos os outros participantes, usando o menor
   numero de rodadas possivel:
-  - ate 7 jogadores: 1 quadra (3, 5, 8 ou 11 rodadas, dependendo do numero de
+  - ate 7 jogadores: 1 quadra (3, 5, 9 ou 11 rodadas, dependendo do numero de
     inscritos - 4, 5, 6 ou 7 jogadores respectivamente);
   - 8 jogadores: 2 quadras simultaneas, 7 rodadas (14 partidas).
   **Confrontos equilibrados.** Os modelos foram escolhidos para que cada
@@ -82,11 +82,21 @@ de resultados e ranking semestral/anual com criterios de desempate.
   enfrente varias vezes o Y e so uma vez o Z):
   - 4, 5 e 8 jogadores: equilibrio perfeito - cada par de jogadores se enfrenta
     exatamente 2 vezes (e, com 8, cada par e dupla exatamente 1 vez);
-  - 6 e 7 jogadores: todos se enfrentam 2 vezes, exceto um unico par que chega
+  - 6 jogadores: 9 rodadas, e **todos jogam exatamente 6 partidas** (e
+    descansam 3). Cada par se enfrenta 2 ou 3 vezes (9 pares com 2 e 6 pares
+    com 3) e cada par e dupla 1 ou 2 vezes. Como 36 confrontos nao se dividem
+    igualmente entre 15 pares, essa diferenca de 1 e o minimo possivel;
+  - 7 jogadores: todos se enfrentam 2 vezes, exceto um unico par que chega
     a 4. Isso e uma limitacao matematica: o numero de jogos nao se divide
-    igualmente entre os jogadores (6 jogadores: 5 jogam 5 jogos e 2 jogam 6;
-    7 jogadores: 2 jogam 7 jogos e 5 jogam 6), e os dois que jogam mais
-    inevitavelmente se enfrentam mais vezes. Esse par e definido por sorteio.
+    igualmente (2 jogadores jogam 7 jogos e 5 jogam 6), e os dois que jogam
+    mais inevitavelmente se enfrentam mais vezes. Esse par e definido por
+    sorteio.
+  **Descansos.** Com 6 jogadores nenhum jogador fica de fora em duas rodadas
+  seguidas (cada um descansa 3 vezes, sempre intercalado com jogos). Com 5
+  jogadores isso ja acontece naturalmente (so 1 descansa por rodada). Com 7
+  jogadores nao foi possivel garantir isso sem abrir mao de que todos joguem
+  com e contra todos: la, alguns jogadores podem ficar 2 rodadas seguidas de
+  fora.
   **Quadras (8 jogadores).** O equilibrio perfeito de adversarios nao permite
   alternar as quadras 01 e 02 de forma perfeita para todos: 7 dos 8 jogadores
   jogam 3 jogos numa quadra e 4 na outra (alternando ao maximo), e 1 jogador

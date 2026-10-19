@@ -10,11 +10,13 @@
 //   jogadores | rodadas | parceiros (min-max) | adversarios (min-max por par)
 //   4         | 3       | 1-1                 | 2-2 (perfeito)
 //   5         | 5       | 1-1                 | 2-2 (perfeito)
-//   6         | 8       | 1-2                 | 2-4 (so 1 par chega a 4; os demais, 2)
+//   6         | 9       | 1-2                 | 2-3 (9 pares com 2 e 6 pares com 3)
 //   7         | 11      | 1-2                 | 2-4 (so 1 par chega a 4; os demais, 2)
 //   8         | 7       | 1-1                 | 2-2 (perfeito)
 //
-// Com 6 e 7 jogadores a variacao residual e inevitavel: o total de jogos nao e
+// Com 6 jogadores usamos 9 rodadas: assim todos jogam exatamente 6 partidas (e
+// descansam 3), e nunca ha jogador descansando 2 rodadas seguidas.
+// Com 7 jogadores a variacao residual e inevitavel: o total de jogos nao e
 // divisivel igualmente (alguns jogadores jogam 1 partida a mais) e, nessas
 // condicoes, a matematica obriga que os dois jogadores com mais partidas se
 // enfrentem mais vezes. Com 8 jogadores o equilibrio de adversarios e perfeito (cada
@@ -37,14 +39,15 @@ const MODELOS = {
     {"matches":[[[1,2],[4,3]]],"resting":[0]}
   ],
   "6": [
-    {"matches":[[[0,3],[4,5]]],"resting":[1,2]},
-    {"matches":[[[1,2],[4,5]]],"resting":[0,3]},
+    {"matches":[[[0,5],[4,1]]],"resting":[2,3]},
     {"matches":[[[0,1],[2,3]]],"resting":[4,5]},
-    {"matches":[[[0,4],[1,5]]],"resting":[2,3]},
-    {"matches":[[[2,5],[3,4]]],"resting":[0,1]},
-    {"matches":[[[0,2],[1,3]]],"resting":[4,5]},
-    {"matches":[[[0,5],[2,4]]],"resting":[1,3]},
-    {"matches":[[[1,4],[3,5]]],"resting":[0,2]}
+    {"matches":[[[3,4],[2,5]]],"resting":[0,1]},
+    {"matches":[[[5,0],[1,2]]],"resting":[3,4]},
+    {"matches":[[[5,3],[4,0]]],"resting":[1,2]},
+    {"matches":[[[3,4],[2,1]]],"resting":[0,5]},
+    {"matches":[[[1,5],[0,2]]],"resting":[3,4]},
+    {"matches":[[[3,0],[5,4]]],"resting":[1,2]},
+    {"matches":[[[3,1],[4,2]]],"resting":[0,5]}
   ],
   "7": [
     {"matches":[[[0,6],[2,4]]],"resting":[1,3,5]},
