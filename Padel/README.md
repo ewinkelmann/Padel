@@ -142,6 +142,13 @@ de resultados e ranking semestral/anual com criterios de desempate.
   vitorias** (vitorias ÷ jogos disputados, somando as partidas regulares de
   todas as etapas concluidas); se ainda empatar, vence quem disputou mais jogos
   e, por fim, a ordem alfabetica. A Finalissima e a Ultimalissima nao entram.
+- **Podio de Finalissimas.** Na secao Hall da Fama, acima da lista de jogos, um
+  podio mostra os 3 jogadores que mais venceram Finalissimas (cada jogador da
+  dupla vencedora soma 1 vitoria; so contam jogos com placar lancado, e so
+  aparece quem e **Inscrito e Mensalista**). Desempate: **percentual de
+  vitorias** nas Finalissimas disputadas (vitorias ÷ Finalissimas jogadas); se
+  ainda empatar, vence quem disputou mais Finalissimas e, por fim, a ordem
+  alfabetica.
 - **Hall da Fama.** Em etapas com **8 jogadores**, a Finalissima e a
   Ultimalissima sao **geradas automaticamente** assim que o placar de todas as
   partidas normais estiver salvo (se um resultado for corrigido antes de

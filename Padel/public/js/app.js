@@ -1252,8 +1252,10 @@
   async function viewHallDaFama() {
     viewEl.innerHTML = '<div class="card"><p class="muted">Carregando Hall da Fama…</p></div>';
     let itens;
+    let podioFinalHtml = '';
     try {
       ({ itens } = await api('/hall-da-fama'));
+      podioFinalHtml = podioFinalissimasHtml(await api('/hall-da-fama/podio'));
     } catch (e) {
       viewEl.innerHTML = `<div class="card"><p class="form-error">${esc(e.message)}</p></div>`;
       return;
@@ -1296,6 +1298,7 @@
           <div class="card-title-row"><h1>Hall da Fama</h1></div>
           <p class="help-box">Ao final de cada etapa, com base no ranking do dia, dois jogos extras podem ser disputados: a <strong>Finalíssima</strong>, entre o 1º e o 2º colocados, duplas montadas com o 1º e o 4º de um lado e o 2º e o 3º do outro; e, quando a etapa tiver 8 jogadores, a <strong>Ultimalíssima</strong>, entre os 4 últimos colocados, com o 5º e o 8º de um lado e o 6º e o 7º do outro. Esses jogos não contam para o ranking geral nem para os perfis - ficam registrados aqui.</p>
         </div>
+        ${podioFinalHtml}
         ${corpo}
       </div>
     `));
@@ -1425,14 +1428,17 @@
     `;
   }
 
-  /** Podio dos jogadores que mais venceram etapas (aba "Por etapa"). */
-  function podioEtapasHtml(dados) {
-    const { podio } = dados;
+  /**
+   * Podio generico (1o ao centro, 2o a esquerda, 3o a direita). `cfg`:
+   * titulo, dica, vazio e, para cada jogador, `linha1` (destaque: quantas vezes
+   * venceu) e `linha2` (percentual de vitorias + detalhe).
+   */
+  function podioHtml(podio, cfg) {
     if (!podio.length) {
       return `
         <div class="card">
-          <h2>🏆 Pódio de etapas vencidas</h2>
-          <p class="empty-state" style="margin-bottom:0;">Ainda não há etapas concluídas com vencedor entre os mensalistas inscritos.</p>
+          <h2>${cfg.titulo}</h2>
+          <p class="empty-state" style="margin-bottom:0;">${cfg.vazio}</p>
         </div>`;
     }
     // ordem visual do podio: 2o, 1o, 3o
@@ -1441,17 +1447,39 @@
       <div class="podio-col podio-${j.posicao}">
         <div class="podio-medalha">${MEDALHAS[j.posicao]}</div>
         <div class="podio-nome">${esc(j.nome)}</div>
-        <div class="podio-vitorias"><strong>${j.etapasVencidas}</strong> ${j.etapasVencidas === 1 ? 'etapa vencida' : 'etapas vencidas'}</div>
-        <div class="podio-part">${formatarPercentual(j.percentualVitorias)} de vitórias<br><span class="muted small">${j.vitorias} vitórias em ${j.jogos} jogos</span></div>
+        <div class="podio-vitorias">${cfg.linha1(j)}</div>
+        <div class="podio-part">${formatarPercentual(j.percentualVitorias)} de vitórias<br><span class="muted small">${cfg.linha2(j)}</span></div>
         <div class="podio-base">${j.posicao}º</div>
       </div>
     `).join('');
     return `
       <div class="card">
-        <h2>🏆 Pódio de etapas vencidas</h2>
-        <p class="form-hint" style="margin-bottom:14px;">Jogadores que mais terminaram em 1º lugar no ranking da etapa (apenas etapas concluídas, jogadores inscritos e mensalistas). Desempate: percentual de vitórias (vitórias ÷ jogos disputados).</p>
+        <h2>${cfg.titulo}</h2>
+        <p class="form-hint" style="margin-bottom:14px;">${cfg.dica}</p>
         <div class="podio">${colunas}</div>
       </div>`;
+  }
+
+  /** Podio dos jogadores que mais venceram etapas (aba "Por etapa"). */
+  function podioEtapasHtml(dados) {
+    return podioHtml(dados.podio, {
+      titulo: '🏆 Pódio de etapas vencidas',
+      dica: 'Jogadores que mais terminaram em 1º lugar no ranking da etapa (apenas etapas concluídas, jogadores inscritos e mensalistas). Desempate: percentual de vitórias (vitórias ÷ jogos disputados).',
+      vazio: 'Ainda não há etapas concluídas com vencedor entre os mensalistas inscritos.',
+      linha1: (j) => `<strong>${j.etapasVencidas}</strong> ${j.etapasVencidas === 1 ? 'etapa vencida' : 'etapas vencidas'}`,
+      linha2: (j) => `${j.vitorias} ${j.vitorias === 1 ? 'vitória' : 'vitórias'} em ${j.jogos} ${j.jogos === 1 ? 'jogo' : 'jogos'}`,
+    });
+  }
+
+  /** Podio dos maiores ganhadores de Finalissimas (secao Hall da Fama). */
+  function podioFinalissimasHtml(dados) {
+    return podioHtml(dados.podio, {
+      titulo: '🏆 Pódio de Finalíssimas',
+      dica: 'Jogadores que mais venceram Finalíssimas (apenas jogos com placar lançado, jogadores inscritos e mensalistas). Desempate: percentual de vitórias nas Finalíssimas disputadas.',
+      vazio: 'Ainda não há Finalíssimas com resultado lançado entre os mensalistas inscritos.',
+      linha1: (j) => `<strong>${j.vitorias}</strong> ${j.vitorias === 1 ? 'Finalíssima vencida' : 'Finalíssimas vencidas'}`,
+      linha2: (j) => `${j.vitorias} de ${j.jogos} ${j.jogos === 1 ? 'Finalíssima disputada' : 'Finalíssimas disputadas'}`,
+    });
   }
 
   async function renderRanking() {
