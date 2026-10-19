@@ -292,3 +292,25 @@ tfoot td { color: var(--muted); font-size: 12px; padding-top: 8px; }
   }
   @page { margin: 14mm; }
 }
+
+/* Podio de etapas vencidas (aba Ranking > Por etapa) */
+.podio { display: flex; align-items: flex-end; justify-content: center; gap: 10px; }
+.podio-col { flex: 1 1 0; max-width: 220px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+.podio-medalha { font-size: 34px; line-height: 1; margin-bottom: 4px; }
+.podio-nome { font-family: var(--font-display); font-weight: 800; font-size: 16px; overflow-wrap: anywhere; }
+.podio-vitorias { margin-top: 2px; font-size: 14px; }
+.podio-vitorias strong { font-size: 20px; color: var(--court); }
+.podio-part { font-size: 12.5px; color: var(--muted); margin: 4px 0 8px; min-height: 36px; }
+.podio-base { width: 100%; display: flex; align-items: center; justify-content: center; border-radius: 10px 10px 0 0;
+  background: var(--court-light); color: var(--court-text); font-family: var(--font-display); font-weight: 800; font-size: 22px; }
+.podio-1 .podio-base { height: 84px; background: var(--court); color: #fff; }
+.podio-2 .podio-base { height: 58px; }
+.podio-3 .podio-base { height: 40px; }
+@media (max-width: 480px) {
+  .podio { gap: 6px; }
+  .podio-nome { font-size: 13.5px; }
+  .podio-medalha { font-size: 28px; }
+  .podio-part { font-size: 11.5px; }
+}
+.col-destaque { font-weight: 700; color: var(--court-text); }
+.aviso-amostra { color: var(--warn); font-weight: 700; cursor: help; }

@@ -77,12 +77,24 @@ de resultados e ranking semestral/anual com criterios de desempate.
   - ate 7 jogadores: 1 quadra (3, 5, 8 ou 11 rodadas, dependendo do numero de
     inscritos - 4, 5, 6 ou 7 jogadores respectivamente);
   - 8 jogadores: 2 quadras simultaneas, 7 rodadas (14 partidas).
-    Nesse caso, o sorteio tambem **alterna as quadras** de cada jogador: nas 7
-    rodadas, cada um joga 3 ou 4 jogos na quadra 01 e os demais na quadra 02, e
-    evita ao maximo ficar muitas rodadas seguidas na mesma quadra.
+  **Confrontos equilibrados.** Os modelos foram escolhidos para que cada
+  jogador enfrente os demais de forma igualitaria (e nao que um jogador X
+  enfrente varias vezes o Y e so uma vez o Z):
+  - 4, 5 e 8 jogadores: equilibrio perfeito - cada par de jogadores se enfrenta
+    exatamente 2 vezes (e, com 8, cada par e dupla exatamente 1 vez);
+  - 6 e 7 jogadores: todos se enfrentam 2 vezes, exceto um unico par que chega
+    a 4. Isso e uma limitacao matematica: o numero de jogos nao se divide
+    igualmente entre os jogadores (6 jogadores: 5 jogam 5 jogos e 2 jogam 6;
+    7 jogadores: 2 jogam 7 jogos e 5 jogam 6), e os dois que jogam mais
+    inevitavelmente se enfrentam mais vezes. Esse par e definido por sorteio.
+  **Quadras (8 jogadores).** O equilibrio perfeito de adversarios nao permite
+  alternar as quadras 01 e 02 de forma perfeita para todos: 7 dos 8 jogadores
+  jogam 3 jogos numa quadra e 4 na outra (alternando ao maximo), e 1 jogador
+  (sorteado a cada etapa) joga todos os seus 7 jogos na mesma quadra.
   Os modelos de rodada foram gerados e verificados por simulacao (veja
   `server/lib/schedules.js`); a cada sorteio, os jogadores reais sao
-  embaralhados aleatoriamente dentro desse modelo.
+  embaralhados aleatoriamente dentro desse modelo. Etapas ja sorteadas nao
+  mudam - o novo modelo vale so para sorteios feitos a partir de agora.
 - **Resultados.** Em cada partida (e tambem na Finalissima e na Ultimalissima),
   cada dupla pode fazer de 0 a 7 games, e nao pode haver empate. O site
   rejeita qualquer outro placar.
@@ -104,20 +116,32 @@ de resultados e ranking semestral/anual com criterios de desempate.
   anotar o placar a mao. Se uma partida ja tiver resultado lancado no site,
   o placar aparece pre-preenchido na folha.
 - **Ranking individual semestral e anual**, calculado automaticamente a
-  partir dos resultados de todas as etapas do periodo, nesta ordem de
-  desempate: (1) numero de vitorias, (2) saldo de games, (3) games ganhos,
-  (4) confronto direto entre os jogadores empatados. O 1º, 2º e 3º colocados
-  aparecem com medalha (🥇🥈🥉) ao lado da posicao. Esta lista (semestral e
-  anual) so mostra quem estiver marcado como **Inscrito e Mensalista** na
-  secao Inscritos - os jogos de todo mundo continuam entrando no calculo
-  normalmente (saldo de games, confronto direto etc.), so a listagem final e
-  filtrada.
+  partir dos resultados de todas as etapas do periodo. Um menu **"Classificar
+  por"** permite escolher o criterio principal: **numero de vitorias** (padrao)
+  ou **percentual de vitorias** (vitorias ÷ jogos). Os demais criterios de
+  desempate sao os mesmos nos dois casos, nesta ordem: saldo de games, games
+  ganhos e confronto direto entre os jogadores empatados. A tabela mostra
+  sempre a coluna "% V". No modo percentual, quem jogou menos da metade dos
+  jogos de quem mais jogou no periodo recebe o aviso ⚠ de **amostra pequena**
+  (ex.: 1 vitoria em 1 jogo = 100%), para o percentual nao enganar. O 1º, 2º e
+  3º colocados aparecem com medalha (🥇🥈🥉) ao lado da posicao. Esta lista
+  (semestral e anual) so mostra quem estiver marcado como **Inscrito e
+  Mensalista** na secao Inscritos - os jogos de todo mundo continuam entrando
+  no calculo normalmente (saldo de games, confronto direto etc.), so a
+  listagem final e filtrada.
 - **Ranking por etapa (historico).** Na pagina de Ranking, a aba "Por etapa"
   mostra um seletor com todas as etapas ja sorteadas/lancadas; ao escolher
   uma, aparece a classificacao estatica so daquela etapa (mesmos criterios de
   desempate do ranking semestral/anual), com todos os participantes daquela
   etapa (sem o filtro de mensalista - e um retrato fixo de como ficou cada
   etapa especifica, sem somar com as demais).
+- **Podio de etapas vencidas.** No topo da aba "Por etapa" aparece um podio
+  com os 3 jogadores que mais ficaram em 1º lugar no ranking da etapa. Conta
+  todas as etapas ja concluidas (todas as partidas regulares com resultado) e
+  mostra so quem e **Inscrito e Mensalista**. Desempate: **percentual de
+  participacao** (etapas em que o jogador participou ÷ total de etapas
+  concluidas); se ainda empatar, vence quem participou de mais etapas e, por
+  fim, a ordem alfabetica. A Finalissima e a Ultimalissima nao entram.
 - **Hall da Fama.** Em etapas com **8 jogadores**, a Finalissima e a
   Ultimalissima sao **geradas automaticamente** assim que o placar de todas as
   partidas normais estiver salvo (se um resultado for corrigido antes de
@@ -320,7 +344,7 @@ server/            back-end (Node.js + Express)
     auth.js        login (JWT em cookie httpOnly) e permissoes
     sorteio.js      algoritmo de sorteio (usa os modelos de schedules.js)
     schedules.js    modelos de rodadas/partidas verificados por simulacao
-    ranking.js      calculo do ranking e criterios de desempate
+    ranking.js      ranking (vitorias ou % de vitorias), ranking por etapa e podio de etapas vencidas
     email.js       envio do e-mail de redefinicao de senha (SMTP)
   routes/          endpoints da API (auth, jogadores, etapas, partidas, ranking)
 public/            front-end (HTML/CSS/JS puro, sem build step)

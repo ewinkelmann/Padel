@@ -23,7 +23,11 @@ function periodoAtual(data = new Date()) {
   return { ano, semestre, periodoSemestral: `${ano}-${semestre}`, periodoAnual: `${ano}` };
 }
 
-function calcularRanking(tipo, periodo) {
+/** Criterios aceitos para classificar o ranking semestral/anual. */
+const CRITERIOS = ['vitorias', 'percentual'];
+
+function calcularRanking(tipo, periodo, criterioParam) {
+  const criterio = CRITERIOS.includes(criterioParam) ? criterioParam : 'vitorias';
   const { inicio, fim, rotulo } = limitesPeriodo(tipo, periodo);
 
   const etapas = db
@@ -124,6 +128,7 @@ function calcularRanking(tipo, periodo) {
     gamesGanhos: s.gamesGanhos,
     gamesPerdidos: s.gamesPerdidos,
     saldoGames: s.gamesGanhos - s.gamesPerdidos,
+    percentualVitorias: s.partidasJogadas > 0 ? (s.vitorias / s.partidasJogadas) * 100 : 0,
   }));
 
   // O ranking geral (semestral/anual) so mostra quem esta inscrito na secao
@@ -140,13 +145,19 @@ function calcularRanking(tipo, periodo) {
     linhas = linhas.filter((l) => qualificados.has(l.jogadorId));
   }
 
-  linhas = ordenarComCriteriosDeDesempate(linhas, confrontos);
+  linhas = ordenarComCriteriosDeDesempate(linhas, confrontos, criterio);
 
+  // Na classificacao por percentual, quem jogou bem menos que os demais pode ter
+  // um percentual "inflado" por poucos jogos (ex.: 1 vitoria em 1 jogo = 100%).
+  // Marcamos esses casos (menos da metade dos jogos de quem mais jogou) para a
+  // tela exibir um aviso de amostra pequena.
+  const maxJogos = linhas.reduce((m, l) => Math.max(m, l.partidasJogadas), 0);
   linhas.forEach((linha, idx) => {
     linha.posicao = idx + 1;
+    linha.amostraPequena = linha.partidasJogadas < maxJogos / 2;
   });
 
-  return { periodo, tipo, rotulo, inicio, fim, ranking: linhas };
+  return { periodo, tipo, criterio, rotulo, inicio, fim, ranking: linhas };
 }
 
 function construirConfrontos(partidas) {
@@ -181,14 +192,22 @@ function vitoriasConfrontoDireto(confrontos, a, b) {
 }
 
 /**
- * Ordena por: 1) vitorias, 2) saldo de games, 3) games ganhos, 4) confronto direto
+ * Ordena por: 1) vitorias (ou, no criterio "percentual", o percentual de vitorias =
+ * vitorias / jogos), 2) saldo de games, 3) games ganhos, 4) confronto direto
  * (calculado apenas dentro do grupo empatado nos 3 primeiros criterios).
+ * Os demais criterios de desempate sao os mesmos nos dois modos.
  * Caso o empate persista (nunca se enfrentaram, ou confronto circular), a ordem
  * final é alfabética, de forma estável e previsível.
  */
-function ordenarComCriteriosDeDesempate(linhas, confrontos) {
+function ordenarComCriteriosDeDesempate(linhas, confrontos, criterio = 'vitorias') {
+  const porPercentual = criterio === 'percentual';
+  // valor do 1o criterio (comparacao exata: 2/4 e 1/2 geram o mesmo double)
+  const principal = (l) => (porPercentual
+    ? (l.partidasJogadas > 0 ? l.vitorias / l.partidasJogadas : 0)
+    : l.vitorias);
+
   linhas.sort((a, b) => {
-    if (b.vitorias !== a.vitorias) return b.vitorias - a.vitorias;
+    if (principal(b) !== principal(a)) return principal(b) - principal(a);
     if (b.saldoGames !== a.saldoGames) return b.saldoGames - a.saldoGames;
     if (b.gamesGanhos !== a.gamesGanhos) return b.gamesGanhos - a.gamesGanhos;
     return a.nome.localeCompare(b.nome, 'pt-BR');
@@ -201,7 +220,7 @@ function ordenarComCriteriosDeDesempate(linhas, confrontos) {
     let j = i + 1;
     while (
       j < resultado.length &&
-      resultado[j].vitorias === resultado[i].vitorias &&
+      principal(resultado[j]) === principal(resultado[i]) &&
       resultado[j].saldoGames === resultado[i].saldoGames &&
       resultado[j].gamesGanhos === resultado[i].gamesGanhos
     ) {
@@ -318,4 +337,65 @@ function calcularRankingEtapa(etapaId) {
   return { etapa, ranking: linhas };
 }
 
-module.exports = { calcularRanking, calcularRankingEtapa, periodoAtual, limitesPeriodo };
+/**
+ * Podio de "etapas vencidas": os 3 jogadores que mais ficaram em 1o lugar no
+ * ranking da propria etapa. Considera todas as etapas ja realizadas (status
+ * "finalizada" = todas as partidas regulares com resultado lancado) e, como no
+ * ranking geral, so mostra quem esta em "Inscritos" e marcado como mensalista.
+ *
+ * Desempate: percentual de participacao = etapas em que o jogador participou
+ * dividido pelo total de etapas realizadas. Se ainda assim empatar, ganha quem
+ * participou de mais etapas e, por fim, a ordem alfabetica.
+ */
+function calcularPodioEtapas() {
+  const etapas = db
+    .prepare(`SELECT id FROM etapas WHERE status = 'finalizada' ORDER BY data, id`)
+    .all();
+  const totalEtapas = etapas.length;
+
+  const vitorias = new Map(); // jogadorId -> etapas vencidas
+  const participacoes = new Map(); // jogadorId -> etapas em que participou
+  const nomes = new Map();
+
+  for (const { id } of etapas) {
+    const { ranking } = calcularRankingEtapa(id);
+    for (const linha of ranking) {
+      participacoes.set(linha.jogadorId, (participacoes.get(linha.jogadorId) || 0) + 1);
+      nomes.set(linha.jogadorId, linha.nome);
+    }
+    if (ranking.length > 0 && ranking[0].partidasJogadas > 0) {
+      const campeao = ranking[0].jogadorId;
+      vitorias.set(campeao, (vitorias.get(campeao) || 0) + 1);
+    }
+  }
+
+  let linhas = Array.from(vitorias.entries()).map(([jogadorId, etapasVencidas]) => {
+    const etapasParticipadas = participacoes.get(jogadorId) || 0;
+    return {
+      jogadorId,
+      nome: nomes.get(jogadorId),
+      etapasVencidas,
+      etapasParticipadas,
+      percentualParticipacao: totalEtapas > 0 ? (etapasParticipadas / totalEtapas) * 100 : 0,
+    };
+  });
+
+  if (linhas.length > 0) {
+    const flags = db
+      .prepare(`SELECT id, inscrito, mensalista FROM jogadores WHERE id IN (${linhas.map(() => '?').join(',')})`)
+      .all(...linhas.map((l) => l.jogadorId));
+    const qualificados = new Set(flags.filter((f) => f.inscrito && f.mensalista).map((f) => f.id));
+    linhas = linhas.filter((l) => qualificados.has(l.jogadorId));
+  }
+
+  linhas.sort((a, b) => {
+    if (b.etapasVencidas !== a.etapasVencidas) return b.etapasVencidas - a.etapasVencidas;
+    if (b.percentualParticipacao !== a.percentualParticipacao) return b.percentualParticipacao - a.percentualParticipacao;
+    return a.nome.localeCompare(b.nome, 'pt-BR');
+  });
+
+  const podio = linhas.slice(0, 3).map((l, idx) => ({ ...l, posicao: idx + 1 }));
+  return { totalEtapas, podio };
+}
+
+module.exports = { calcularRanking, calcularRankingEtapa, calcularPodioEtapas, periodoAtual, limitesPeriodo };

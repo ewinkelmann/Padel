@@ -1372,37 +1372,86 @@
     const semestreAtual = agora.getMonth() < 6 ? 1 : 2;
 
     if (!window.__rankingEstado) {
-      window.__rankingEstado = { tipo: 'semestral', ano, semestre: semestreAtual, etapaId: null };
+      window.__rankingEstado = { tipo: 'semestral', ano, semestre: semestreAtual, etapaId: null, criterio: 'vitorias' };
     }
     await renderRanking();
   }
 
   const MEDALHAS = { 1: '🥇', 2: '🥈', 3: '🥉' };
 
-  function tabelaRankingHtml(linhas, mensagemVazia) {
+  function formatarPercentual(v) {
+    return `${v.toFixed(1).replace('.', ',')}%`;
+  }
+
+  /**
+   * Tabela do ranking. Em `opcoes`: `geral` (true no ranking semestral/anual -
+   * mostra a coluna de % de vitorias) e `criterio` ('vitorias' ou 'percentual').
+   */
+  function tabelaRankingHtml(linhas, mensagemVazia, opcoes = {}) {
+    const geral = !!opcoes.geral;
+    const porPercentual = opcoes.criterio === 'percentual';
+    const colunas = geral ? 8 : 7;
     const corpoTabela = linhas.length ? linhas.map((l) => `
       <tr>
         <td class="pos">${l.posicao}º ${MEDALHAS[l.posicao] || ''}</td>
         <td class="player-name">${esc(l.nome)}</td>
         <td>${l.vitorias}</td>
         <td>${l.derrotas}</td>
+        ${geral ? `<td class="${porPercentual ? 'col-destaque' : ''}">${formatarPercentual(l.percentualVitorias || 0)}${porPercentual && l.amostraPequena ? ' <span class="aviso-amostra" title="Amostra pequena: este jogador disputou bem menos jogos que os demais no período, então o percentual pode não ser representativo.">⚠</span>' : ''}</td>` : ''}
         <td>${l.saldoGames > 0 ? '+' : ''}${l.saldoGames}</td>
         <td>${l.gamesGanhos}</td>
         <td>${l.partidasJogadas}</td>
       </tr>
-    `).join('') : `<tr><td colspan="7" class="muted" style="white-space:normal;">${esc(mensagemVazia)}</td></tr>`;
+    `).join('') : `<tr><td colspan="${colunas}" class="muted" style="white-space:normal;">${esc(mensagemVazia)}</td></tr>`;
+
+    const criterios = porPercentual
+      ? 'percentual de vitórias (vitórias ÷ jogos), saldo de games, games ganhos e confronto direto'
+      : 'número de vitórias, saldo de games, games ganhos e confronto direto';
+    const avisoAmostra = porPercentual && linhas.some((l) => l.amostraPequena)
+      ? '<p class="form-hint" style="margin-top:6px;"><span class="aviso-amostra">⚠</span> Amostra pequena: o jogador disputou menos da metade dos jogos de quem mais jogou no período, então o percentual pode não ser representativo.</p>'
+      : '';
 
     return `
       <div class="table-wrap">
         <table>
           <thead>
-            <tr><th>#</th><th>Jogador</th><th>V</th><th>D</th><th>Saldo</th><th>Games</th><th>Jogos</th></tr>
+            <tr><th>#</th><th>Jogador</th><th>V</th><th>D</th>${geral ? '<th>% V</th>' : ''}<th>Saldo</th><th>Games</th><th>Jogos</th></tr>
           </thead>
           <tbody>${corpoTabela}</tbody>
         </table>
       </div>
-      <p class="form-hint" style="margin-top:12px;">Critérios de desempate, nesta ordem: número de vitórias, saldo de games, games ganhos e confronto direto.</p>
+      <p class="form-hint" style="margin-top:12px;">Critérios de desempate, nesta ordem: ${criterios}.</p>
+      ${avisoAmostra}
     `;
+  }
+
+  /** Podio dos jogadores que mais venceram etapas (aba "Por etapa"). */
+  function podioEtapasHtml(dados) {
+    const { podio, totalEtapas } = dados;
+    if (!podio.length) {
+      return `
+        <div class="card">
+          <h2>🏆 Pódio de etapas vencidas</h2>
+          <p class="empty-state" style="margin-bottom:0;">Ainda não há etapas concluídas com vencedor entre os mensalistas inscritos.</p>
+        </div>`;
+    }
+    // ordem visual do podio: 2o, 1o, 3o
+    const ordem = [podio[1], podio[0], podio[2]].filter(Boolean);
+    const colunas = ordem.map((j) => `
+      <div class="podio-col podio-${j.posicao}">
+        <div class="podio-medalha">${MEDALHAS[j.posicao]}</div>
+        <div class="podio-nome">${esc(j.nome)}</div>
+        <div class="podio-vitorias"><strong>${j.etapasVencidas}</strong> ${j.etapasVencidas === 1 ? 'etapa vencida' : 'etapas vencidas'}</div>
+        <div class="podio-part">${formatarPercentual(j.percentualParticipacao)} de participação<br><span class="muted small">${j.etapasParticipadas} de ${totalEtapas} etapas</span></div>
+        <div class="podio-base">${j.posicao}º</div>
+      </div>
+    `).join('');
+    return `
+      <div class="card">
+        <h2>🏆 Pódio de etapas vencidas</h2>
+        <p class="form-hint" style="margin-bottom:14px;">Jogadores que mais terminaram em 1º lugar no ranking da etapa (apenas etapas concluídas, jogadores inscritos e mensalistas). Desempate: percentual de participação nas etapas realizadas.</p>
+        <div class="podio">${colunas}</div>
+      </div>`;
   }
 
   async function renderRanking() {
@@ -1437,6 +1486,13 @@
         <option value="${e.id}" ${e.id === estado.etapaId ? 'selected' : ''}>${esc(e.nome)} · ${formatarData(e.data)}</option>
       `).join('');
 
+      let podioHtml = '';
+      try {
+        podioHtml = podioEtapasHtml(await api('/ranking/podio-etapas'));
+      } catch (e) {
+        podioHtml = `<div class="card"><p class="form-error">${esc(e.message)}</p></div>`;
+      }
+
       let corpoRanking = '<p class="empty-state">Nenhuma etapa com sorteio ou partidas lançadas ainda.</p>';
       if (estado.etapaId) {
         let dadosEtapa;
@@ -1455,6 +1511,9 @@
         <div>
           <div class="card">
             ${cabecalhoTipos}
+          </div>
+          ${podioHtml}
+          <div class="card">
             <div class="field" style="margin-bottom:0;">
               <label>Etapa</label>
               <select id="select-etapa-ranking" ${etapas.length ? '' : 'disabled'}>${opcoesEtapas}</select>
@@ -1478,9 +1537,10 @@
     }
 
     const periodo = estado.tipo === 'anual' ? String(estado.ano) : `${estado.ano}-${estado.semestre}`;
+    const criterio = estado.criterio === 'percentual' ? 'percentual' : 'vitorias';
     let dados;
     try {
-      dados = await api(`/ranking?tipo=${estado.tipo}&periodo=${periodo}`);
+      dados = await api(`/ranking?tipo=${estado.tipo}&periodo=${periodo}&criterio=${criterio}`);
     } catch (e) {
       viewEl.innerHTML = `<div class="card"><p class="form-error">${esc(e.message)}</p></div>`;
       return;
@@ -1496,8 +1556,15 @@
             <strong>${esc(dados.rotulo)}</strong>
             <button class="btn btn-ghost btn-sm" id="btn-periodo-seguinte">Seguinte →</button>
           </div>
+          <div class="field" style="margin:10px 0 0;">
+            <label for="select-criterio-ranking">Classificar por</label>
+            <select id="select-criterio-ranking">
+              <option value="vitorias" ${criterio === 'vitorias' ? 'selected' : ''}>Número de vitórias</option>
+              <option value="percentual" ${criterio === 'percentual' ? 'selected' : ''}>Percentual de vitórias (vitórias ÷ jogos)</option>
+            </select>
+          </div>
         </div>
-        <div class="card">${tabelaRankingHtml(dados.ranking, 'Nenhum jogador inscrito neste período ainda.')}</div>
+        <div class="card">${tabelaRankingHtml(dados.ranking, 'Nenhum jogador inscrito neste período ainda.', { geral: true, criterio })}</div>
       </div>
     `));
 
@@ -1506,6 +1573,10 @@
         estado.tipo = btn.getAttribute('data-tipo');
         renderRanking();
       });
+    });
+    viewEl.querySelector('#select-criterio-ranking').addEventListener('change', (ev) => {
+      estado.criterio = ev.target.value;
+      renderRanking();
     });
     viewEl.querySelector('#btn-periodo-anterior').addEventListener('click', () => {
       moverPeriodo(-1);
