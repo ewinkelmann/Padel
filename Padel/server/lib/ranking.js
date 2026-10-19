@@ -343,9 +343,9 @@ function calcularRankingEtapa(etapaId) {
  * "finalizada" = todas as partidas regulares com resultado lancado) e, como no
  * ranking geral, so mostra quem esta em "Inscritos" e marcado como mensalista.
  *
- * Desempate: percentual de participacao = etapas em que o jogador participou
- * dividido pelo total de etapas realizadas. Se ainda assim empatar, ganha quem
- * participou de mais etapas e, por fim, a ordem alfabetica.
+ * Desempate: percentual de vitorias = vitorias / jogos disputados (somando todas
+ * as partidas regulares das etapas concluidas). Se ainda empatar, vence quem
+ * disputou mais jogos e, por fim, a ordem alfabetica.
  */
 function calcularPodioEtapas() {
   const etapas = db
@@ -354,13 +354,16 @@ function calcularPodioEtapas() {
   const totalEtapas = etapas.length;
 
   const vitorias = new Map(); // jogadorId -> etapas vencidas
-  const participacoes = new Map(); // jogadorId -> etapas em que participou
+  const jogosVitorias = new Map(); // jogadorId -> {vitorias, jogos} somados em todas as etapas concluidas
   const nomes = new Map();
 
   for (const { id } of etapas) {
     const { ranking } = calcularRankingEtapa(id);
     for (const linha of ranking) {
-      participacoes.set(linha.jogadorId, (participacoes.get(linha.jogadorId) || 0) + 1);
+      const acc = jogosVitorias.get(linha.jogadorId) || { vitorias: 0, jogos: 0 };
+      acc.vitorias += linha.vitorias;
+      acc.jogos += linha.partidasJogadas;
+      jogosVitorias.set(linha.jogadorId, acc);
       nomes.set(linha.jogadorId, linha.nome);
     }
     if (ranking.length > 0 && ranking[0].partidasJogadas > 0) {
@@ -370,13 +373,14 @@ function calcularPodioEtapas() {
   }
 
   let linhas = Array.from(vitorias.entries()).map(([jogadorId, etapasVencidas]) => {
-    const etapasParticipadas = participacoes.get(jogadorId) || 0;
+    const { vitorias: vit, jogos } = jogosVitorias.get(jogadorId) || { vitorias: 0, jogos: 0 };
     return {
       jogadorId,
       nome: nomes.get(jogadorId),
       etapasVencidas,
-      etapasParticipadas,
-      percentualParticipacao: totalEtapas > 0 ? (etapasParticipadas / totalEtapas) * 100 : 0,
+      vitorias: vit,
+      jogos,
+      percentualVitorias: jogos > 0 ? (vit / jogos) * 100 : 0,
     };
   });
 
@@ -390,7 +394,11 @@ function calcularPodioEtapas() {
 
   linhas.sort((a, b) => {
     if (b.etapasVencidas !== a.etapasVencidas) return b.etapasVencidas - a.etapasVencidas;
-    if (b.percentualParticipacao !== a.percentualParticipacao) return b.percentualParticipacao - a.percentualParticipacao;
+    // comparacao por fracao exata (vit/jogos) para nao depender de arredondamento
+    const fa = a.jogos > 0 ? a.vitorias / a.jogos : 0;
+    const fb = b.jogos > 0 ? b.vitorias / b.jogos : 0;
+    if (fb !== fa) return fb - fa;
+    if (b.jogos !== a.jogos) return b.jogos - a.jogos;
     return a.nome.localeCompare(b.nome, 'pt-BR');
   });
 

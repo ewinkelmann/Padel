@@ -1427,7 +1427,7 @@
 
   /** Podio dos jogadores que mais venceram etapas (aba "Por etapa"). */
   function podioEtapasHtml(dados) {
-    const { podio, totalEtapas } = dados;
+    const { podio } = dados;
     if (!podio.length) {
       return `
         <div class="card">
@@ -1442,14 +1442,14 @@
         <div class="podio-medalha">${MEDALHAS[j.posicao]}</div>
         <div class="podio-nome">${esc(j.nome)}</div>
         <div class="podio-vitorias"><strong>${j.etapasVencidas}</strong> ${j.etapasVencidas === 1 ? 'etapa vencida' : 'etapas vencidas'}</div>
-        <div class="podio-part">${formatarPercentual(j.percentualParticipacao)} de participação<br><span class="muted small">${j.etapasParticipadas} de ${totalEtapas} etapas</span></div>
+        <div class="podio-part">${formatarPercentual(j.percentualVitorias)} de vitórias<br><span class="muted small">${j.vitorias} vitórias em ${j.jogos} jogos</span></div>
         <div class="podio-base">${j.posicao}º</div>
       </div>
     `).join('');
     return `
       <div class="card">
         <h2>🏆 Pódio de etapas vencidas</h2>
-        <p class="form-hint" style="margin-bottom:14px;">Jogadores que mais terminaram em 1º lugar no ranking da etapa (apenas etapas concluídas, jogadores inscritos e mensalistas). Desempate: percentual de participação nas etapas realizadas.</p>
+        <p class="form-hint" style="margin-bottom:14px;">Jogadores que mais terminaram em 1º lugar no ranking da etapa (apenas etapas concluídas, jogadores inscritos e mensalistas). Desempate: percentual de vitórias (vitórias ÷ jogos disputados).</p>
         <div class="podio">${colunas}</div>
       </div>`;
   }

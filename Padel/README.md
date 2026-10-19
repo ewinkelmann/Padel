@@ -139,9 +139,9 @@ de resultados e ranking semestral/anual com criterios de desempate.
   com os 3 jogadores que mais ficaram em 1º lugar no ranking da etapa. Conta
   todas as etapas ja concluidas (todas as partidas regulares com resultado) e
   mostra so quem e **Inscrito e Mensalista**. Desempate: **percentual de
-  participacao** (etapas em que o jogador participou ÷ total de etapas
-  concluidas); se ainda empatar, vence quem participou de mais etapas e, por
-  fim, a ordem alfabetica. A Finalissima e a Ultimalissima nao entram.
+  vitorias** (vitorias ÷ jogos disputados, somando as partidas regulares de
+  todas as etapas concluidas); se ainda empatar, vence quem disputou mais jogos
+  e, por fim, a ordem alfabetica. A Finalissima e a Ultimalissima nao entram.
 - **Hall da Fama.** Em etapas com **8 jogadores**, a Finalissima e a
   Ultimalissima sao **geradas automaticamente** assim que o placar de todas as
   partidas normais estiver salvo (se um resultado for corrigido antes de
