@@ -578,7 +578,21 @@
             ? '<button class="btn btn-ghost btn-sm" id="btn-destravar-etapa">🔓 Ajustar</button>'
             : '<button class="btn btn-ghost btn-sm" id="btn-travar-etapa">🔒 Finalizar etapa</button>'
         ) : ''}
+        ${etapa.status !== 'inscricoes' ? '<button class="btn btn-ghost btn-sm" id="btn-mostrar-consolidar">🔗 Consolidar com outra etapa</button>' : ''}
         <button class="btn btn-danger btn-sm" id="btn-excluir-etapa">Excluir etapa</button>
+      </div>
+      <div id="painel-consolidar" hidden style="margin-top:12px;">
+        <div class="divider"></div>
+        <h3 style="font-size:15px;">🔗 Consolidar com outra etapa</h3>
+        <p class="form-hint" style="margin-top:0;">Traz todas as partidas, com os resultados já lançados, da etapa escolhida para <strong>esta</strong> etapa (depois das que ela já tem) e exclui a etapa escolhida. As duas etapas precisam ter exatamente os mesmos jogadores.</p>
+        <div class="field" style="margin-bottom:0;">
+          <label>Etapa a ser incorporada (será excluída)</label>
+          <select id="select-consolidar"><option value="">Carregando…</option></select>
+        </div>
+        <div class="row" style="margin-top:10px;">
+          <button class="btn btn-sm" id="btn-consolidar">Consolidar</button>
+          <button class="btn btn-ghost btn-sm" id="btn-cancelar-consolidar">Cancelar</button>
+        </div>
       </div>
     ` : '';
 
@@ -605,7 +619,7 @@
     const todasNormaisComResultado = partidasNormais.length > 0 &&
       partidasNormais.every((p) => p.games_equipe1 !== null && p.games_equipe2 !== null);
     const hallFamaJaGerado = partidasHallFama.length > 0;
-    const podeGerarHallFama = podeOrganizar && !hallFamaJaGerado && todasNormaisComResultado && participantes.length >= 4;
+    const podeGerarHallFama = podeOrganizar && !hallFamaJaGerado && todasNormaisComResultado && participantes.length >= 4 && participantes.length !== 5; // 5 jogadores: sem Hall da Fama
 
     const finalissima = partidasHallFama.find((p) => p.tipo === 'finalissima');
     const ultimalissima = partidasHallFama.find((p) => p.tipo === 'ultimalissima');
@@ -967,6 +981,41 @@
       });
     }
 
+    const btnMostrarConsolidar = viewEl.querySelector('#btn-mostrar-consolidar');
+    if (btnMostrarConsolidar) {
+      const painel = viewEl.querySelector('#painel-consolidar');
+      const selectConsolidar = viewEl.querySelector('#select-consolidar');
+      btnMostrarConsolidar.addEventListener('click', async () => {
+        painel.hidden = false;
+        try {
+          const { etapas } = await api('/etapas');
+          const outras = etapas.filter((e) => e.id !== Number(etapaId) && e.status !== 'inscricoes');
+          selectConsolidar.innerHTML = '<option value="">Selecionar…</option>' + outras
+            .map((e) => `<option value="${e.id}">${esc(e.nome)} · ${formatarData(e.data)} (${e.total_participantes} jogadores, ${e.total_partidas} jogos)</option>`)
+            .join('');
+        } catch (e) { mostrarToast(e.message, 'erro'); }
+      });
+      viewEl.querySelector('#btn-cancelar-consolidar').addEventListener('click', () => { painel.hidden = true; });
+      const btnConsolidar = viewEl.querySelector('#btn-consolidar');
+      btnConsolidar.addEventListener('click', async () => {
+        if (!selectConsolidar.value) { mostrarToast('Escolha a etapa a ser incorporada.', 'erro'); return; }
+        const nomeOrigem = selectConsolidar.options[selectConsolidar.selectedIndex].text;
+        if (!confirm(`Trazer todas as partidas de "${nomeOrigem}" para esta etapa e EXCLUIR aquela etapa? Esta ação não pode ser desfeita.`)) return;
+        btnConsolidar.disabled = true;
+        try {
+          const r = await api(`/etapas/${etapaId}/consolidar`, {
+            method: 'POST',
+            body: JSON.stringify({ etapaOrigemId: Number(selectConsolidar.value) }),
+          });
+          mostrarToast(`Etapas consolidadas: ${r.totalPartidas} jogos nesta etapa.`);
+          viewEtapaDetalhe(etapaId);
+        } catch (e) {
+          mostrarToast(e.message, 'erro');
+          btnConsolidar.disabled = false;
+        }
+      });
+    }
+
     const btnExcluir = viewEl.querySelector('#btn-excluir-etapa');
     if (btnExcluir) {
       btnExcluir.addEventListener('click', async () => {
@@ -1296,7 +1345,7 @@
       <div>
         <div class="card">
           <div class="card-title-row"><h1>Hall da Fama</h1></div>
-          <p class="help-box">Ao final de cada etapa, com base no ranking do dia, dois jogos extras podem ser disputados: a <strong>Finalíssima</strong>, entre o 1º e o 2º colocados, duplas montadas com o 1º e o 4º de um lado e o 2º e o 3º do outro; e, quando a etapa tiver 8 jogadores, a <strong>Ultimalíssima</strong>, entre os 4 últimos colocados, com o 5º e o 8º de um lado e o 6º e o 7º do outro. Esses jogos não contam para o ranking geral nem para os perfis - ficam registrados aqui.</p>
+          <p class="help-box">Ao final de cada etapa, com base no ranking do dia, dois jogos extras podem ser disputados: a <strong>Finalíssima</strong>, entre o 1º e o 2º colocados, duplas montadas com o 1º e o 4º de um lado e o 2º e o 3º do outro; e, quando a etapa tiver 8 jogadores, a <strong>Ultimalíssima</strong>, entre os 4 últimos colocados, com o 5º e o 8º de um lado e o 6º e o 7º do outro. Etapas com 5 jogadores não têm Finalíssima nem Ultimalíssima. Esses jogos não contam para o ranking geral - ficam registrados aqui.</p>
         </div>
         ${podioFinalHtml}
         ${corpo}

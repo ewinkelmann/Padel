@@ -9,11 +9,13 @@
 //
 //   jogadores | rodadas | parceiros (min-max) | adversarios (min-max por par)
 //   4         | 3       | 1-1                 | 2-2 (perfeito)
-//   5         | 5       | 1-1                 | 2-2 (perfeito)
+//   5         | 10      | 2-2                 | 4-4 (perfeito; todos jogam 8 e descansam 2)
 //   6         | 9       | 1-2                 | 2-3 (9 pares com 2 e 6 pares com 3)
 //   7         | 11      | 1-2                 | 2-4 (so 1 par chega a 4; os demais, 2)
 //   8         | 7       | 1-1                 | 2-2 (perfeito)
 //
+// Com 5 jogadores sao 10 jogos (1 quadra), todos diferentes entre si: cada um joga
+// 8 e descansa 2, sempre com 5 jogos de intervalo entre um descanso e outro.
 // Com 6 jogadores usamos 9 rodadas: assim todos jogam exatamente 6 partidas (e
 // descansam 3), e nunca ha jogador descansando 2 rodadas seguidas.
 // Com 7 jogadores a variacao residual e inevitavel: o total de jogos nao e
@@ -32,11 +34,16 @@ const MODELOS = {
     {"matches":[[[2,1],[0,3]]],"resting":[]}
   ],
   "5": [
+    {"matches":[[[1,2],[3,4]]],"resting":[0]},
+    {"matches":[[[0,4],[2,3]]],"resting":[1]},
     {"matches":[[[0,2],[1,4]]],"resting":[3]},
-    {"matches":[[[1,0],[2,3]]],"resting":[4]},
-    {"matches":[[[3,1],[0,4]]],"resting":[2]},
-    {"matches":[[[0,3],[2,4]]],"resting":[1]},
-    {"matches":[[[1,2],[4,3]]],"resting":[0]}
+    {"matches":[[[0,1],[2,3]]],"resting":[4]},
+    {"matches":[[[0,3],[1,4]]],"resting":[2]},
+    {"matches":[[[1,3],[2,4]]],"resting":[0]},
+    {"matches":[[[0,2],[3,4]]],"resting":[1]},
+    {"matches":[[[0,1],[2,4]]],"resting":[3]},
+    {"matches":[[[0,3],[1,2]]],"resting":[4]},
+    {"matches":[[[0,4],[1,3]]],"resting":[2]}
   ],
   "6": [
     {"matches":[[[0,5],[4,1]]],"resting":[2,3]},

@@ -331,6 +331,13 @@ router.post('/:id/hall-da-fama', autenticar, permitirPapeis('admin', 'organizado
   const etapa = buscarEtapaOu404(req.params.id, res);
   if (!etapa) return;
 
+  const totalParticipantes = db
+    .prepare('SELECT COUNT(*) AS n FROM etapa_participantes WHERE etapa_id = ?')
+    .get(etapa.id).n;
+  if (totalParticipantes === 5) {
+    return res.status(409).json({ erro: 'Etapas com 5 jogadores nao tem Finalissima nem Ultimalissima.' });
+  }
+
   const jaGerado = db
     .prepare(`SELECT COUNT(*) AS n FROM partidas WHERE etapa_id = ? AND tipo != 'normal'`)
     .get(etapa.id);
@@ -350,6 +357,76 @@ router.post('/:id/hall-da-fama', autenticar, permitirPapeis('admin', 'organizado
     return res.status(409).json({ erro: 'E preciso pelo menos 4 jogadores com partidas disputadas para gerar a Finalissima.' });
   }
   res.status(201).json({ ok: true, ultimalissimaGerada: resultado.ultimalissimaGerada });
+});
+
+// Consolida duas etapas numa so: todas as partidas (com os resultados ja lancados)
+// da etapa de origem passam para esta etapa, entrando depois das que ela ja tem
+// (as rodadas continuam a numeracao), e a etapa de origem e excluida. Pensado para
+// o caso de 5 jogadores, em que a etapa passou a ter 10 jogos e uma mesma turma
+// jogou duas "metades" em etapas separadas. Somente o administrador. Exige que as
+// duas etapas tenham exatamente os mesmos participantes e que nenhuma tenha jogos
+// do Hall da Fama (Finalissima/Ultimalissima).
+router.post('/:id/consolidar', autenticar, exigirAdmin, (req, res) => {
+  const destino = buscarEtapaOu404(req.params.id, res);
+  if (!destino) return;
+
+  const origemId = Number((req.body || {}).etapaOrigemId);
+  if (!Number.isInteger(origemId) || origemId <= 0) {
+    return res.status(400).json({ erro: 'Informe a etapa a ser consolidada.' });
+  }
+  if (origemId === destino.id) {
+    return res.status(400).json({ erro: 'Escolha uma etapa diferente desta.' });
+  }
+  const origem = db.prepare('SELECT * FROM etapas WHERE id = ?').get(origemId);
+  if (!origem) return res.status(404).json({ erro: 'Etapa a ser consolidada nao encontrada.' });
+
+  const temHallDaFama = (etapaId) => db
+    .prepare("SELECT COUNT(*) AS n FROM partidas WHERE etapa_id = ? AND tipo != 'normal'")
+    .get(etapaId).n > 0;
+  if (temHallDaFama(destino.id) || temHallDaFama(origem.id)) {
+    return res.status(409).json({
+      erro: 'Uma das etapas tem jogos do Hall da Fama (Finalissima/Ultimalissima). Exclua esses jogos antes de consolidar.',
+    });
+  }
+
+  const participantesDe = (etapaId) => db
+    .prepare(
+      `SELECT j.id, j.nome FROM etapa_participantes ep JOIN jogadores j ON j.id = ep.jogador_id
+       WHERE ep.etapa_id = ? ORDER BY j.nome COLLATE NOCASE`
+    )
+    .all(etapaId);
+  const pDestino = participantesDe(destino.id);
+  const pOrigem = participantesDe(origem.id);
+  const idsDestino = new Set(pDestino.map((p) => p.id));
+  const idsOrigem = new Set(pOrigem.map((p) => p.id));
+  const soNoDestino = pDestino.filter((p) => !idsOrigem.has(p.id)).map((p) => p.nome);
+  const soNaOrigem = pOrigem.filter((p) => !idsDestino.has(p.id)).map((p) => p.nome);
+  if (soNoDestino.length || soNaOrigem.length) {
+    const partes = [];
+    if (soNoDestino.length) partes.push(`so em "${destino.nome}": ${soNoDestino.join(', ')}`);
+    if (soNaOrigem.length) partes.push(`so em "${origem.nome}": ${soNaOrigem.join(', ')}`);
+    return res.status(409).json({
+      erro: `As duas etapas precisam ter exatamente os mesmos jogadores (${partes.join('; ')}).`,
+    });
+  }
+
+  let movidas = 0;
+  db.transaction(() => {
+    const maxRodada = db
+      .prepare('SELECT COALESCE(MAX(rodada), 0) AS r FROM partidas WHERE etapa_id = ?')
+      .get(destino.id).r;
+    movidas = db
+      .prepare('UPDATE partidas SET etapa_id = ?, rodada = rodada + ? WHERE etapa_id = ?')
+      .run(destino.id, maxRodada, origem.id).changes;
+    // as inscricoes da etapa de origem saem junto com ela (ON DELETE CASCADE)
+    db.prepare('DELETE FROM etapas WHERE id = ?').run(origem.id);
+
+    const { total, comResultado } = situacaoNormais(destino.id);
+    const novoStatus = total > 0 && total === comResultado ? 'finalizada' : 'sorteada';
+    db.prepare('UPDATE etapas SET status = ? WHERE id = ?').run(novoStatus, destino.id);
+  })();
+
+  res.json({ ok: true, partidasMovidas: movidas, totalPartidas: situacaoNormais(destino.id).total });
 });
 
 // Substitui um jogador por outro numa etapa ja sorteada, desde que nenhum

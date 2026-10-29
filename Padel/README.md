@@ -70,18 +70,34 @@ de resultados e ranking semestral/anual com criterios de desempate.
   na etapa). O substituto assume exatamente o lugar de quem saiu em todas as
   partidas - mesmas duplas, adversarios e quadras, sem refazer o sorteio. Depois
   que o primeiro resultado for salvo, a substituicao deixa de ser possivel.
+- **Consolidar etapas (so administrador).** Na pagina de uma etapa ja sorteada
+  ou com partidas, o botao **"🔗 Consolidar com outra etapa"** traz todas as
+  partidas - com os resultados ja lancados - de outra etapa para esta (depois
+  das que ela ja tem; as rodadas continuam a numeracao) e **exclui a outra
+  etapa**. Serve, por exemplo, para juntar duas etapas de 5 jogadores que foram
+  jogadas em "metades" de 5 jogos no formato antigo: a etapa passa a ter os 10
+  jogos do formato atual. As duas etapas precisam ter exatamente os mesmos
+  jogadores e nenhuma pode ter Finalissima/Ultimalissima; senao o site recusa
+  e explica o motivo. A etapa que recebe as partidas mantem nome e data. A
+  acao nao pode ser desfeita.
 - **Sorteio automatico.** Garante matematicamente que, na etapa, cada jogador
   joga pelo menos uma vez ao lado de (como parceiro) e pelo menos uma vez
   contra (como adversario) todos os outros participantes, usando o menor
   numero de rodadas possivel:
-  - ate 7 jogadores: 1 quadra (3, 5, 9 ou 11 rodadas, dependendo do numero de
+  - ate 7 jogadores: 1 quadra (3, 10, 9 ou 11 rodadas, dependendo do numero de
     inscritos - 4, 5, 6 ou 7 jogadores respectivamente);
   - 8 jogadores: 2 quadras simultaneas, 7 rodadas (14 partidas).
   **Confrontos equilibrados.** Os modelos foram escolhidos para que cada
   jogador enfrente os demais de forma igualitaria (e nao que um jogador X
   enfrente varias vezes o Y e so uma vez o Z):
-  - 4, 5 e 8 jogadores: equilibrio perfeito - cada par de jogadores se enfrenta
-    exatamente 2 vezes (e, com 8, cada par e dupla exatamente 1 vez);
+  - 4 e 8 jogadores: equilibrio perfeito - cada par de jogadores se enfrenta
+    exatamente 2 vezes (e cada par e dupla exatamente 1 vez);
+  - 5 jogadores: **10 jogos em 1 quadra**, todos diferentes entre si. Todos
+    jogam exatamente 8 jogos e descansam 2, sempre com 5 jogos de intervalo
+    entre um descanso e outro. Equilibrio perfeito: cada par de jogadores e
+    dupla exatamente 2 vezes e se enfrenta exatamente 4 vezes. Etapas com 5
+    jogadores **nao tem Finalissima nem Ultimalissima** (o botao nao aparece e
+    o servidor recusa a geracao);
   - 6 jogadores: 9 rodadas, e **todos jogam exatamente 6 partidas** (e
     descansam 3). Cada par se enfrenta 2 ou 3 vezes (9 pares com 2 e 6 pares
     com 3) e cada par e dupla 1 ou 2 vezes. Como 36 confrontos nao se dividem
@@ -93,7 +109,8 @@ de resultados e ranking semestral/anual com criterios de desempate.
     sorteio.
   **Descansos.** Com 6 jogadores nenhum jogador fica de fora em duas rodadas
   seguidas (cada um descansa 3 vezes, sempre intercalado com jogos). Com 5
-  jogadores isso ja acontece naturalmente (so 1 descansa por rodada). Com 7
+  jogadores tambem nao (so 1 descansa por jogo e os descansos de cada um ficam
+  5 jogos afastados). Com 7
   jogadores nao foi possivel garantir isso sem abrir mao de que todos joguem
   com e contra todos: la, alguns jogadores podem ficar 2 rodadas seguidas de
   fora.
@@ -384,7 +401,7 @@ jogadores em 1 quadra, 8 jogadores em 2 quadras). Se o grupo crescer bastante
 e for preciso suportar 9+ jogadores ou mais quadras, e preciso ampliar o
 gerador de sorteio (`server/lib/sorteio.js` e `schedules.js`).
 
-**Por que uma etapa com 6 ou 7 jogadores gera tantas rodadas (8 ou 11)?**
+**Por que uma etapa com 5, 6 ou 7 jogadores gera tantas rodadas (10, 9 ou 11)?**
 Com apenas 1 quadra disponivel, e matematicamente o numero minimo de rodadas
 necessario para garantir que todos joguem ao lado de e contra todos os
 outros participantes pelo menos uma vez (regra 1.3). Quanto mais jogadores em
